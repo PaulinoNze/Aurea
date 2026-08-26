@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Nueva Transacción - Prompt Maestro</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-low": "#1c1c16",
+                        "on-secondary": "#123720",
+                        "surface-tint": "#c8c6c8",
+                        "on-secondary-fixed-variant": "#294e35",
+                        "error": "#ffb4ab",
+                        "surface-bright": "#3a3933",
+                        "surface-container": "#20201a",
+                        "on-primary": "#303032",
+                        "secondary-container": "#2c5137",
+                        "tertiary-fixed-dim": "#ecc246",
+                        "surface-container-highest": "#36352f",
+                        "on-background": "#e6e2d9",
+                        "on-tertiary": "#3d2e00",
+                        "inverse-on-surface": "#31302b",
+                        "secondary-fixed": "#c2edca",
+                        "primary-fixed": "#e4e2e4",
+                        "on-primary-container": "#858486",
+                        "surface-dim": "#14140f",
+                        "on-secondary-fixed": "#00210e",
+                        "background": "#14140f",
+                        "inverse-primary": "#5f5e60",
+                        "primary-container": "#1c1c1e",
+                        "surface-container-high": "#2b2a24",
+                        "inverse-surface": "#e6e2d9",
+                        "on-primary-fixed-variant": "#474649",
+                        "on-error-container": "#ffdad6",
+                        "tertiary": "#ecc246",
+                        "tertiary-container": "#cea72c",
+                        "on-secondary-container": "#99c2a1",
+                        "outline": "#919095",
+                        "outline-variant": "#46464a",
+                        "primary": "#c8c6c8",
+                        "on-surface": "#e6e2d9",
+                        "surface-variant": "#36352f",
+                        "tertiary-fixed": "#ffe08e",
+                        "error-container": "#93000a",
+                        "on-surface-variant": "#c7c6ca",
+                        "on-tertiary-container": "#503d00",
+                        "on-tertiary-fixed": "#241a00",
+                        "secondary-fixed-dim": "#a7d1af",
+                        "on-error": "#690005",
+                        "surface": "#14140f",
+                        "surface-container-lowest": "#0f0e0a",
+                        "primary-fixed-dim": "#c8c6c8",
+                        "on-primary-fixed": "#1b1b1d",
+                        "secondary": "#a7d1af",
+                        "on-tertiary-fixed-variant": "#584400"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "xs": "4px",
+                        "base": "8px",
+                        "margin-desktop": "40px",
+                        "xl": "32px",
+                        "md": "16px",
+                        "sm": "12px",
+                        "gutter": "16px",
+                        "lg": "24px",
+                        "margin-mobile": "20px"
+                    },
+                    fontFamily: {
+                        "body-md": ["Inter", "sans-serif"],
+                        "numeric-display": ["Inter", "sans-serif"],
+                        "title-md": ["IBM Plex Sans", "sans-serif"],
+                        "body-lg": ["Inter", "sans-serif"],
+                        "label-md": ["IBM Plex Sans", "sans-serif"],
+                        "headline-lg-mobile": ["IBM Plex Sans", "sans-serif"],
+                        "display-lg": ["IBM Plex Sans", "sans-serif"],
+                        "headline-lg": ["IBM Plex Sans", "sans-serif"]
+                    },
+                    fontSize: {
+                        "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+                        "numeric-display": ["32px", { lineHeight: "40px", letterSpacing: "-0.01em", fontWeight: "600" }],
+                        "title-md": ["20px", { lineHeight: "28px", fontWeight: "500" }],
+                        "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                        "label-md": ["12px", { lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "500" }],
+                        "headline-lg-mobile": ["28px", { lineHeight: "36px", fontWeight: "600" }],
+                        "display-lg": ["48px", { lineHeight: "56px", letterSpacing: "-0.02em", fontWeight: "600" }],
+                        "headline-lg": ["32px", { lineHeight: "40px", fontWeight: "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Custom Numpad tap effect */
+        .numpad-btn:active {
+            transform: scale(0.95);
+            background-color: theme('colors.surface-variant');
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body-md h-[884px] flex flex-col antialiased selection:bg-secondary selection:text-on-secondary overflow-hidden">
+<!-- Top App Bar (Task-Focused: No global shell nav, just back context) -->
+<header class="flex justify-between items-center w-full px-margin-mobile h-16 shrink-0">
+<button aria-label="Volver" class="p-2 -ml-2 rounded-full hover:bg-surface-variant/50 transition-colors text-on-surface">
+<span class="material-symbols-outlined">close</span>
+</button>
+<span class="font-title-md text-title-md text-on-surface">Nueva Transacción</span>
+<div class="w-10"></div> <!-- Balancer -->
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 overflow-y-auto flex flex-col">
+<!-- Toggle Gasto / Ingreso -->
+<div class="px-margin-mobile mt-sm">
+<div class="bg-surface-container-low rounded-full p-1 flex">
+<button class="flex-1 py-2 rounded-full bg-surface-variant text-on-surface font-label-md text-label-md shadow-sm transition-all duration-200 ease-in-out">
+                    Gasto
+                </button>
+<button class="flex-1 py-2 rounded-full text-on-surface-variant font-label-md text-label-md hover:text-on-surface transition-colors">
+                    Ingreso
+                </button>
+</div>
+</div>
+<!-- Large Numeric Display -->
+<div class="px-margin-mobile py-xl flex justify-center items-baseline gap-xs">
+<span class="font-numeric-display text-numeric-display text-on-surface-variant">$</span>
+<span class="font-display-lg text-display-lg text-on-surface tracking-tight" id="amount-display">0.00</span>
+</div>
+<!-- Category Selection Grid (Horizontal Scroll) -->
+<div class="pl-margin-mobile pb-lg shrink-0">
+<div class="flex gap-md overflow-x-auto snap-x hide-scrollbar pr-margin-mobile pb-2">
+<!-- Active Category -->
+<button class="flex flex-col items-center gap-xs snap-start flex-shrink-0 w-16 group">
+<div class="w-14 h-14 rounded-full bg-secondary-container flex items-center justify-center border border-secondary transition-transform group-active:scale-95">
+<span class="material-symbols-outlined text-on-secondary-container" style="font-variation-settings: 'FILL' 1;">restaurant</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface">Comida</span>
+</button>
+<!-- Inactive Categories -->
+<button class="flex flex-col items-center gap-xs snap-start flex-shrink-0 w-16 group">
+<div class="w-14 h-14 rounded-full bg-surface-container flex items-center justify-center border border-outline-variant/30 group-hover:bg-surface-container-high transition-all group-active:scale-95">
+<span class="material-symbols-outlined text-on-surface-variant">directions_car</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant">Transporte</span>
+</button>
+<button class="flex flex-col items-center gap-xs snap-start flex-shrink-0 w-16 group">
+<div class="w-14 h-14 rounded-full bg-surface-container flex items-center justify-center border border-outline-variant/30 group-hover:bg-surface-container-high transition-all group-active:scale-95">
+<span class="material-symbols-outlined text-on-surface-variant">shopping_bag</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant">Compras</span>
+</button>
+<button class="flex flex-col items-center gap-xs snap-start flex-shrink-0 w-16 group">
+<div class="w-14 h-14 rounded-full bg-surface-container flex items-center justify-center border border-outline-variant/30 group-hover:bg-surface-container-high transition-all group-active:scale-95">
+<span class="material-symbols-outlined text-on-surface-variant">receipt_long</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant">Servicios</span>
+</button>
+<button class="flex flex-col items-center gap-xs snap-start flex-shrink-0 w-16 group">
+<div class="w-14 h-14 rounded-full bg-surface-container flex items-center justify-center border border-outline-variant/30 group-hover:bg-surface-container-high transition-all group-active:scale-95">
+<span class="material-symbols-outlined text-on-surface-variant">add</span>
+</div>
+<span class="font-label-md text-label-md text-on-surface-variant">Más</span>
+</button>
+</div>
+</div>
+<!-- Details Inputs -->
+<div class="px-margin-mobile flex gap-sm pb-lg shrink-0">
+<!-- Date -->
+<button class="flex-1 bg-surface-container rounded-lg p-sm flex items-center gap-sm border border-outline-variant/20 hover:bg-surface-container-high transition-colors text-left">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">calendar_today</span>
+<span class="font-body-md text-body-md text-on-surface truncate">Hoy</span>
+</button>
+<!-- Note -->
+<div class="flex-[2] bg-surface-container rounded-lg p-sm flex items-center gap-sm border border-outline-variant/20 focus-within:border-secondary focus-within:ring-1 focus-within:ring-secondary transition-all">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">edit_note</span>
+<input class="bg-transparent border-none p-0 focus:ring-0 text-on-surface font-body-md text-body-md w-full placeholder:text-on-surface-variant/50" placeholder="Añadir nota..." type="text"/>
+</div>
+</div>
+<!-- OCR Scanner Button -->
+<div class="px-margin-mobile pb-lg shrink-0">
+<button class="w-full bg-surface-container-high hover:bg-surface-bright rounded-xl p-md flex items-center justify-center gap-sm border border-outline-variant/30 transition-colors shadow-sm active:scale-[0.98]">
+<span class="material-symbols-outlined text-tertiary">document_scanner</span>
+<span class="font-title-md text-body-lg text-on-surface font-medium">Escanear Ticket</span>
+</button>
+</div>
+<!-- Spacer to push numpad down if screen is tall -->
+<div class="flex-grow"></div>
+<!-- Numpad Area -->
+<div class="px-margin-mobile grid grid-cols-3 gap-x-sm gap-y-xs pb-md shrink-0">
+<!-- Row 1 -->
+<button class="numpad-btn h-14 flex items-center justify-center font-numeric-display text-numeric-display text-on-surface bg-transparent rounded-xl transition-transform duration-100">1</button>
+<button class="numpad-btn h-14 flex items-center justify-center font-numeric-display text-numeric-display text-on-surface bg-transparent rounded-xl transition-transform duration-100">2</button>
+<button class="numpad-btn h-14 flex items-center justify-center font-numeric-display text-numeric-display text-on-surface bg-transparent rounded-xl transition-transform duration-100">3</button>
+<!-- Row 2 -->
+<button class="numpad-btn h-14 flex items-center justify-center font-numeric-display text-numeric-display text-on-surface bg-transparent rounded-xl transition-transform duration-100">4</button>
+<button class="numpad-btn h-14 flex items-center justify-center font-numeric-display text-numeric-display text-on-surface bg-transparent rounded-xl transition-transform duration-100">5</button>
+<button class="numpad-btn h-14 flex items-center justify-center font-numeric-display text-numeric-display text-on-surface bg-transparent rounded-xl transition-transform duration-100">6</button>
+<!-- Row 3 -->
+<button class="numpad-btn h-14 flex items-center justify-center font-numeric-display text-numeric-display text-on-surface bg-transparent rounded-xl transition-transform duration-100">7</button>
+<button class="numpad-btn h-14 flex items-center justify-center font-numeric-display text-numeric-display text-on-surface bg-transparent rounded-xl transition-transform duration-100">8</button>
+<button class="numpad-btn h-14 flex items-center justify-center font-numeric-display text-numeric-display text-on-surface bg-transparent rounded-xl transition-transform duration-100">9</button>
+<!-- Row 4 -->
+<button class="numpad-btn h-14 flex items-center justify-center font-numeric-display text-numeric-display text-on-surface bg-transparent rounded-xl transition-transform duration-100">.</button>
+<button class="numpad-btn h-14 flex items-center justify-center font-numeric-display text-numeric-display text-on-surface bg-transparent rounded-xl transition-transform duration-100">0</button>
+<button aria-label="Borrar" class="numpad-btn h-14 flex items-center justify-center text-on-surface-variant bg-transparent rounded-xl transition-transform duration-100">
+<span class="material-symbols-outlined text-[28px]">backspace</span>
+</button>
+</div>
+<!-- Fixed Footer Action -->
+<div class="px-margin-mobile pb-margin-mobile pt-sm bg-background shrink-0">
+<button class="w-full bg-secondary text-on-secondary font-title-md text-title-md py-4 rounded-full flex justify-center items-center gap-sm shadow-[0_4px_20px_rgba(167,209,175,0.15)] hover:opacity-90 active:scale-[0.98] transition-all">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">save</span>
+                Guardar Localmente
+            </button>
+</div>
+</main>
+<script>
+        // Simple numpad interaction visual logic
+        const display = document.getElementById('amount-display');
+        let currentValue = '0';
+        let hasDecimal = false;
+
+        document.querySelectorAll('.numpad-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const val = e.currentTarget.textContent.trim();
+                
+                if(e.currentTarget.querySelector('.material-symbols-outlined')) {
+                    // Backspace logic
+                    if (currentValue.length > 1) {
+                        if (currentValue.slice(-1) === '.') hasDecimal = false;
+                        currentValue = currentValue.slice(0, -1);
+                    } else {
+                        currentValue = '0';
+                    }
+                } else if (val === '.') {
+                    if (!hasDecimal) {
+                        currentValue += '.';
+                        hasDecimal = true;
+                    }
+                } else {
+                    if (currentValue === '0' && val !== '.') {
+                        currentValue = val;
+                    } else {
+                        // Limit length for UI
+                        if (currentValue.length < 9) {
+                            currentValue += val;
+                        }
+                    }
+                }
+                
+                display.textContent = currentValue;
+                
+                // Add tiny bounce effect to display
+                display.style.transform = 'scale(1.05)';
+                setTimeout(() => {
+                    display.style.transform = 'scale(1)';
+                    display.style.transition = 'transform 0.1s ease-out';
+                }, 50);
+            });
+        });
+    </script>
+</body></html>

@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es" style=""><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Dashboard - Prompt Maestro</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-low": "#1c1c16",
+                        "on-secondary": "#123720",
+                        "surface-tint": "#c8c6c8",
+                        "on-secondary-fixed-variant": "#294e35",
+                        "error": "#ffb4ab",
+                        "surface-bright": "#3a3933",
+                        "surface-container": "#20201a",
+                        "on-primary": "#303032",
+                        "secondary-container": "#2c5137",
+                        "tertiary-fixed-dim": "#ecc246",
+                        "surface-container-highest": "#36352f",
+                        "on-background": "#e6e2d9",
+                        "on-tertiary": "#3d2e00",
+                        "inverse-on-surface": "#31302b",
+                        "secondary-fixed": "#c2edca",
+                        "primary-fixed": "#e4e2e4",
+                        "on-primary-container": "#858486",
+                        "surface-dim": "#14140f",
+                        "on-secondary-fixed": "#00210e",
+                        "background": "#14140f",
+                        "inverse-primary": "#5f5e60",
+                        "primary-container": "#1c1c1e",
+                        "surface-container-high": "#2b2a24",
+                        "inverse-surface": "#e6e2d9",
+                        "on-primary-fixed-variant": "#474649",
+                        "on-error-container": "#ffdad6",
+                        "tertiary": "#ecc246",
+                        "tertiary-container": "#cea72c",
+                        "on-secondary-container": "#99c2a1",
+                        "outline": "#919095",
+                        "outline-variant": "#46464a",
+                        "primary": "#c8c6c8",
+                        "on-surface": "#e6e2d9",
+                        "surface-variant": "#36352f",
+                        "tertiary-fixed": "#ffe08e",
+                        "error-container": "#93000a",
+                        "on-surface-variant": "#c7c6ca",
+                        "on-tertiary-container": "#503d00",
+                        "on-tertiary-fixed": "#241a00",
+                        "secondary-fixed-dim": "#a7d1af",
+                        "on-error": "#690005",
+                        "surface": "#14140f",
+                        "surface-container-lowest": "#0f0e0a",
+                        "primary-fixed-dim": "#c8c6c8",
+                        "on-primary-fixed": "#1b1b1d",
+                        "secondary": "#a7d1af",
+                        "on-tertiary-fixed-variant": "#584400"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "base": "8px",
+                        "margin-desktop": "40px",
+                        "xl": "32px",
+                        "md": "16px",
+                        "sm": "12px",
+                        "gutter": "16px",
+                        "lg": "24px",
+                        "margin-mobile": "20px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "numeric-display": ["Inter"],
+                        "title-md": ["IBM Plex Sans"],
+                        "body-lg": ["Inter"],
+                        "label-md": ["IBM Plex Sans"],
+                        "headline-lg-mobile": ["IBM Plex Sans"],
+                        "display-lg": ["IBM Plex Sans"],
+                        "headline-lg": ["IBM Plex Sans"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "numeric-display": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "title-md": ["20px", { "lineHeight": "28px", "fontWeight": "500" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }]
+                    }
+                },
+            },
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=IBM+Plex+Sans:wght@500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1;
+        }
+        
+        /* Hide scrollbar for horizontal scrolling */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface font-body-md antialiased pb-24 md:pb-0">
+<!-- Desktop Sidebar (Hidden on Mobile) -->
+<nav class="hidden md:flex flex-col fixed left-0 top-0 h-full w-64 bg-surface-container-low border-r border-outline-variant/20 z-40 pt-6">
+<div class="px-6 mb-8 flex items-center gap-3">
+<span class="material-symbols-outlined text-tertiary fill text-3xl">account_balance_wallet</span>
+<span class="font-headline-lg text-headline-lg font-semibold text-on-surface">Prompt Maestro</span>
+</div>
+<div class="flex flex-col gap-2 px-4 flex-1">
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg bg-surface-variant/50 text-tertiary" href="#">
+<span class="material-symbols-outlined fill">dashboard</span>
+<span class="font-title-md text-title-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant/30 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-title-md text-title-md">Activity</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant/30 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">pie_chart</span>
+<span class="font-title-md text-title-md">Budgets</span>
+</a>
+<a class="flex items-center gap-4 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant/30 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">emoji_events</span>
+<span class="font-title-md text-title-md">Goals</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="md:ml-64 min-h-screen">
+<!-- TopAppBar (Mobile) -->
+<header class="md:hidden flex justify-between items-center w-full px-margin-mobile h-16 bg-background sticky top-0 z-30">
+<button class="text-primary p-2 -ml-2 rounded-full hover:bg-surface-variant/50 transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+</button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-semibold text-on-surface">Dashboard</h1>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm" data-icon="cloud_done">cloud_done</span>
+</div>
+</header>
+<!-- Desktop Header (Visible only on md+) -->
+<header class="hidden md:flex justify-between items-center w-full px-margin-desktop h-24 bg-background sticky top-0 z-30">
+<h1 class="font-headline-lg text-headline-lg font-semibold text-on-surface">Dashboard</h1>
+<div class="flex items-center gap-2 text-on-surface-variant bg-surface-container py-2 px-4 rounded-full border border-outline-variant/20">
+<span class="material-symbols-outlined text-sm text-secondary" data-icon="cloud_done">cloud_done</span>
+<span class="font-label-md text-label-md">Synced</span>
+</div>
+</header>
+<div class="px-margin-mobile md:px-margin-desktop max-w-[1200px] mx-auto pb-8">
+<!-- Net Worth Section -->
+<section class="mt-4 md:mt-8 mb-10 flex flex-col items-center md:items-start">
+<h2 class="font-title-md text-title-md text-on-surface-variant mb-2">Patrimonio Neto</h2>
+<div class="font-display-lg text-display-lg text-tertiary">
+                    $1,245,000.00
+                </div>
+</section>
+<!-- Horizontal Scrolling Cards (Ingresos vs Gastos & Presupuesto) -->
+<section class="mb-10 w-full overflow-x-auto no-scrollbar">
+<div class="flex gap-4 md:gap-6 min-w-max pb-4">
+<!-- Card 1: Ingresos vs Gastos -->
+<div class="w-[280px] md:w-[320px] bg-surface-container rounded-xl p-6 border border-on-background/5 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined text-6xl">swap_vert</span>
+</div>
+<h3 class="font-title-md text-title-md text-on-surface mb-6 relative z-10">Ingresos vs Gastos</h3>
+<div class="space-y-4 relative z-10">
+<div>
+<div class="flex justify-between mb-1">
+<span class="font-label-md text-label-md text-on-surface-variant">Ingresos</span>
+<span class="font-body-md text-body-md text-secondary">+$8,500</span>
+</div>
+<div class="w-full bg-surface-variant h-2 rounded-full overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 75%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between mb-1">
+<span class="font-label-md text-label-md text-on-surface-variant">Gastos</span>
+<span class="font-body-md text-body-md text-error">-$3,200</span>
+</div>
+<div class="w-full bg-surface-variant h-2 rounded-full overflow-hidden">
+<div class="bg-error h-full rounded-full" style="width: 45%"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Card 2: Presupuesto Restante -->
+<div class="w-[280px] md:w-[320px] bg-surface-container rounded-xl p-6 border border-on-background/5 relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined text-6xl">account_balance</span>
+</div>
+<h3 class="font-title-md text-title-md text-on-surface mb-2 relative z-10">Presupuesto Restante</h3>
+<p class="font-label-md text-label-md text-on-surface-variant mb-4 relative z-10">Mes Actual</p>
+<div class="flex items-end gap-2 mb-4 relative z-10">
+<span class="font-numeric-display text-numeric-display text-on-surface">$1,800</span>
+<span class="font-body-sm text-on-surface-variant pb-1">/ $5,000</span>
+</div>
+<div class="w-full bg-surface-variant h-2 rounded-full overflow-hidden relative z-10">
+<div class="bg-tertiary h-full rounded-full" style="width: 64%"></div>
+</div>
+<p class="font-label-md text-label-md text-tertiary mt-2 text-right">64% consumido</p>
+</div>
+</div>
+</section>
+<!-- Main Chart & Recent Activity Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+<!-- Main Chart (Donut) -->
+<section class="lg:col-span-2 bg-surface-container rounded-xl p-6 md:p-8 border border-on-background/5">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-title-md text-title-md text-on-surface">Gastos por Categoría</h3>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</div>
+<div class="relative w-full aspect-square md:aspect-[16/9] max-h-[300px] flex items-center justify-center">
+<!-- Simulated Donut Chart using CSS -->
+<div class="relative w-full h-full flex items-center justify-center">
+<svg class="w-full h-full overflow-visible" viewbox="0 0 400 400">
+<!-- Donut Slices -->
+<circle cx="200" cy="200" fill="transparent" r="100" stroke="#ecc246" stroke-dasharray="251.3 628.3" stroke-dashoffset="0" stroke-width="40" transform="rotate(-90 200 200)"></circle>
+<circle cx="200" cy="200" fill="transparent" r="100" stroke="#a7d1af" stroke-dasharray="157.1 628.3" stroke-dashoffset="-251.3" stroke-width="40" transform="rotate(-90 200 200)"></circle>
+<circle cx="200" cy="200" fill="transparent" r="100" stroke="#ffb4ab" stroke-dasharray="125.7 628.3" stroke-dashoffset="-408.4" stroke-width="40" transform="rotate(-90 200 200)"></circle>
+<circle cx="200" cy="200" fill="transparent" r="100" stroke="#5f5e60" stroke-dasharray="94.2 628.3" stroke-dashoffset="-534.1" stroke-width="40" transform="rotate(-90 200 200)"></circle>
+<!-- Callout Lines & Icons -->
+<!-- Vivienda (40%) - Top Right -->
+<line stroke="#ecc246" stroke-width="1" x1="280" x2="320" y1="140" y2="100"></line>
+<foreignobject height="30" width="30" x="325" y="80">
+<span class="material-symbols-outlined text-tertiary" style="font-size: 24px;">home</span>
+</foreignobject>
+<!-- Alimentos (25%) - Bottom Right -->
+<line stroke="#a7d1af" stroke-width="1" x1="280" x2="320" y1="260" y2="300"></line>
+<foreignobject height="30" width="30" x="325" y="290">
+<span class="material-symbols-outlined text-secondary" style="font-size: 24px;">restaurant</span>
+</foreignobject>
+<!-- Ocio (20%) - Bottom Left -->
+<line stroke="#ffb4ab" stroke-width="1" x1="120" x2="80" y1="260" y2="300"></line>
+<foreignobject height="30" width="30" x="45" y="290">
+<span class="material-symbols-outlined text-error" style="font-size: 24px;">theater_comedy</span>
+</foreignobject>
+<!-- Otros (15%) - Top Left -->
+<line stroke="#5f5e60" stroke-width="1" x1="120" x2="80" y1="140" y2="100"></line>
+<foreignobject height="30" width="30" x="45" y="80">
+<span class="material-symbols-outlined text-on-surface-variant" style="font-size: 24px;">category</span>
+</foreignobject>
+</svg>
+<!-- Inner circle for donut hole -->
+<div class="absolute w-32 h-32 md:w-44 md:h-44 bg-surface-container rounded-full flex flex-col items-center justify-center shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
+<span class="font-label-md text-label-md text-on-surface-variant">Total Gastos</span>
+<span class="font-numeric-display text-numeric-display text-on-surface mt-1">$3,200</span>
+</div>
+</div>
+</div>
+<!-- Legend -->
+<div class="mt-6 flex flex-wrap justify-center gap-4">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-tertiary"></div>
+<span class="font-label-md text-label-md text-on-surface">Vivienda (40%)</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-secondary"></div>
+<span class="font-label-md text-label-md text-on-surface">Alimentos (25%)</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-error"></div>
+<span class="font-label-md text-label-md text-on-surface">Ocio (20%)</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-inverse-primary"></div>
+<span class="font-label-md text-label-md text-on-surface">Otros (15%)</span>
+</div>
+</div>
+</section>
+<!-- Recent Activity -->
+<section class="lg:col-span-1 bg-surface-container rounded-xl p-6 border border-on-background/5 flex flex-col">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-title-md text-title-md text-on-surface">Actividad Reciente</h3>
+<a class="font-label-md text-label-md text-tertiary hover:underline" href="#">Ver todo</a>
+</div>
+<div class="flex flex-col gap-4 flex-1">
+<!-- Transaction 1 -->
+<div class="flex items-center justify-between p-3 rounded-lg hover:bg-surface-variant/30 transition-colors">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-xl">shopping_cart</span>
+</div>
+<div>
+<p class="font-body-md text-body-md text-on-surface font-medium">Supermercado</p>
+<p class="font-label-md text-label-md text-on-surface-variant">Hoy, 14:30</p>
+</div>
+</div>
+<span class="font-body-md text-body-md text-on-surface font-semibold">-$124.50</span>
+</div>
+<!-- Transaction 2 -->
+<div class="flex items-center justify-between p-3 rounded-lg hover:bg-surface-variant/30 transition-colors">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-variant flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-xl">electrical_services</span>
+</div>
+<div>
+<p class="font-body-md text-body-md text-on-surface font-medium">Electricidad</p>
+<p class="font-label-md text-label-md text-on-surface-variant">Ayer, 09:15</p>
+</div>
+</div>
+<span class="font-body-md text-body-md text-on-surface font-semibold">-$65.00</span>
+</div>
+<!-- Transaction 3 -->
+<div class="flex items-center justify-between p-3 rounded-lg hover:bg-surface-variant/30 transition-colors">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-tertiary-container flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-xl">payments</span>
+</div>
+<div>
+<p class="font-body-md text-body-md text-on-surface font-medium">Nómina</p>
+<p class="font-label-md text-label-md text-on-surface-variant">01 Oct, 08:00</p>
+</div>
+</div>
+<span class="font-body-md text-body-md text-secondary font-semibold">+$4,250.00</span>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- Floating Action Button (Nuevo Registro) - Desktop bottom right, Mobile above BottomNav -->
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-surface-container-low/80 dark:bg-surface-container-low/80 backdrop-blur-xl rounded-t-xl border-t border-outline-variant/10">
+<a class="flex flex-col items-center justify-center text-tertiary dark:text-tertiary font-medium active:scale-95 transition-transform duration-150 hover:opacity-80" href="#">
+<span class="material-symbols-outlined fill" data-icon="dashboard" data-weight="fill">dashboard</span>
+<span class="font-label-md text-label-md mt-1">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant active:scale-95 transition-transform duration-150 hover:opacity-80" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+<span class="font-label-md text-label-md mt-1">Actividad</span>
+</a>
+<button aria-label="Añadir" class="-mt-10 bg-secondary text-on-secondary w-14 h-14 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform duration-150 z-50 border-4 border-background">
+<span class="material-symbols-outlined text-2xl">add</span>
+</button>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant active:scale-95 transition-transform duration-150 hover:opacity-80" href="#">
+<span class="material-symbols-outlined" data-icon="pie_chart">pie_chart</span>
+<span class="font-label-md text-label-md mt-1">Presupuestos</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant active:scale-95 transition-transform duration-150 hover:opacity-80" href="#">
+<span class="material-symbols-outlined" data-icon="emoji_events">emoji_events</span>
+<span class="font-label-md text-label-md mt-1">Metas</span>
+</a>
+</nav>
+</body></html>

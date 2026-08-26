@@ -1,0 +1,346 @@
+<!DOCTYPE html><html class="dark" lang="es" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Prompt Maestro - Savings &amp; Debt</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-low": "#1c1c16",
+                        "on-secondary": "#123720",
+                        "surface-tint": "#c8c6c8",
+                        "on-secondary-fixed-variant": "#294e35",
+                        "error": "#ffb4ab",
+                        "surface-bright": "#3a3933",
+                        "surface-container": "#20201a",
+                        "on-primary": "#303032",
+                        "secondary-container": "#2c5137",
+                        "tertiary-fixed-dim": "#ecc246",
+                        "surface-container-highest": "#36352f",
+                        "on-background": "#e6e2d9",
+                        "on-tertiary": "#3d2e00",
+                        "inverse-on-surface": "#31302b",
+                        "secondary-fixed": "#c2edca",
+                        "primary-fixed": "#e4e2e4",
+                        "on-primary-container": "#858486",
+                        "surface-dim": "#14140f",
+                        "on-secondary-fixed": "#00210e",
+                        "background": "#14140f",
+                        "inverse-primary": "#5f5e60",
+                        "primary-container": "#1c1c1e",
+                        "surface-container-high": "#2b2a24",
+                        "inverse-surface": "#e6e2d9",
+                        "on-primary-fixed-variant": "#474649",
+                        "on-error-container": "#ffdad6",
+                        "tertiary": "#ecc246",
+                        "tertiary-container": "#cea72c",
+                        "on-secondary-container": "#99c2a1",
+                        "outline": "#919095",
+                        "outline-variant": "#46464a",
+                        "primary": "#c8c6c8",
+                        "on-surface": "#e6e2d9",
+                        "surface-variant": "#36352f",
+                        "tertiary-fixed": "#ffe08e",
+                        "error-container": "#93000a",
+                        "on-surface-variant": "#c7c6ca",
+                        "on-tertiary-container": "#503d00",
+                        "on-tertiary-fixed": "#241a00",
+                        "secondary-fixed-dim": "#a7d1af",
+                        "on-error": "#690005",
+                        "surface": "#14140f",
+                        "surface-container-lowest": "#0f0e0a",
+                        "primary-fixed-dim": "#c8c6c8",
+                        "on-primary-fixed": "#1b1b1d",
+                        "secondary": "#a7d1af",
+                        "on-tertiary-fixed-variant": "#584400"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "base": "8px",
+                        "margin-desktop": "40px",
+                        "xl": "32px",
+                        "md": "16px",
+                        "sm": "12px",
+                        "gutter": "16px",
+                        "lg": "24px",
+                        "margin-mobile": "20px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "numeric-display": ["Inter"],
+                        "title-md": ["IBM Plex Sans"],
+                        "body-lg": ["Inter"],
+                        "label-md": ["IBM Plex Sans"],
+                        "headline-lg-mobile": ["IBM Plex Sans"],
+                        "display-lg": ["IBM Plex Sans"],
+                        "headline-lg": ["IBM Plex Sans"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "numeric-display": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "title-md": ["20px", { "lineHeight": "28px", "fontWeight": "500" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        /* Minimalist scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #36352f; border-radius: 999px; }
+        ::-webkit-scrollbar-thumb:hover { background: #46464a; }
+        
+        .glass-card {
+            background: rgba(28, 28, 30, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(230, 226, 217, 0.05);
+        }
+
+        .progress-ring {
+            transition: stroke-dashoffset 1s ease-in-out;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface font-body-md antialiased min-h-screen flex flex-col pb-24 md:pb-0 md:pl-[80px]">
+<!-- Navigation Rail (Desktop) -->
+<nav class="hidden md:flex flex-col items-center py-8 bg-surface-container-low/80 backdrop-blur-xl border-r border-inverse-on-surface/20 fixed left-0 top-0 h-full w-[80px] z-50">
+<div class="mb-12 font-headline-lg font-semibold text-tertiary">PM</div>
+<div class="flex flex-col gap-8 flex-grow">
+<a aria-label="Dashboard" class="flex flex-col items-center justify-center text-on-surface-variant hover:text-tertiary transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">dashboard</span>
+</a>
+<a aria-label="Activity" class="flex flex-col items-center justify-center text-on-surface-variant hover:text-tertiary transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">receipt_long</span>
+</a>
+<a aria-label="Goals" class="flex flex-col items-center justify-center text-tertiary font-medium bg-surface-variant/30 p-3 rounded-full" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">emoji_events</span>
+</a>
+<a aria-label="Budgets" class="flex flex-col items-center justify-center text-on-surface-variant hover:text-tertiary transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">pie_chart</span>
+</a>
+</div>
+</nav>
+<!-- Top App Bar (Mobile & Desktop Header) -->
+<header class="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop h-16 bg-background top-0 sticky z-40 border-b border-inverse-on-surface/20">
+  <div class="flex items-center w-1/4">
+    <button class="text-on-surface-variant hover:bg-surface-variant/50 p-2 rounded-full transition-colors duration-200">
+      <span class="material-symbols-outlined">account_balance_wallet</span>
+    </button>
+  </div>
+  <div class="flex-grow text-center">
+    <h1 class="font-headline-lg-mobile md:font-headline-lg font-semibold text-on-surface">Metas y Deudas</h1>
+  </div>
+  <div class="flex items-center justify-end w-1/4">
+    <button class="text-secondary hover:bg-surface-variant/50 p-2 rounded-full transition-colors duration-200">
+      <span class="material-symbols-outlined">cloud_done</span>
+    </button>
+  </div>
+</header>
+<main class="flex-grow w-full max-w-[1200px] mx-auto px-margin-mobile md:px-margin-desktop py-lg space-y-xl">
+<!-- Goals Section -->
+<section>
+<div class="flex justify-between items-end mb-md">
+<h2 class="font-title-md text-on-surface">Metas de Ahorro</h2>
+<button class="text-tertiary font-label-md hover:underline flex items-center gap-1">
+                    Añadir Meta <span class="material-symbols-outlined text-sm">add</span>
+</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">
+<!-- Goal Card 1 -->
+<div class="glass-card rounded-xl p-lg flex flex-col gap-sm relative overflow-hidden group">
+<div class="absolute -right-12 -top-12 w-32 h-32 bg-secondary/10 rounded-full blur-2xl"></div>
+<div class="flex justify-between items-start z-10">
+<div>
+<h3 class="font-title-md text-on-surface">Fondo de Emergencia</h3>
+<p class="font-body-md text-on-surface-variant mt-1">Fondo de emergencia</p>
+</div>
+<div class="relative w-16 h-16">
+<svg class="w-full h-full" viewBox="0 0 100 100">
+<circle class="text-surface-variant stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-width="8"></circle>
+<circle class="text-secondary stroke-current progress-ring" cx="50" cy="50" fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="100.48" stroke-linecap="round" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center font-label-md text-secondary">60%</div>
+</div>
+</div>
+<div class="mt-4 z-10">
+<div class="flex justify-between font-label-md mb-2">
+<span class="text-on-surface">$12,000</span>
+<span class="text-on-surface-variant">de $20,000</span>
+</div>
+<div class="w-full h-1 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[60%] rounded-full"></div>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-inverse-on-surface/20 flex items-center gap-2 z-10">
+<span class="material-symbols-outlined text-secondary text-sm">calendar_month</span>
+<span class="font-label-md text-on-surface-variant">Finalización proyectada: <strong>Oct 2024</strong></span>
+</div>
+</div>
+<!-- Goal Card 2 -->
+<div class="glass-card rounded-xl p-lg flex flex-col gap-sm relative overflow-hidden group">
+<div class="absolute -right-12 -top-12 w-32 h-32 bg-tertiary/10 rounded-full blur-2xl"></div>
+<div class="flex justify-between items-start z-10">
+<div>
+<h3 class="font-title-md text-on-surface">Viaje a Japón</h3>
+<p class="font-body-md text-on-surface-variant mt-1">Fondo de vacaciones</p>
+</div>
+<div class="relative w-16 h-16">
+<svg class="w-full h-full" viewBox="0 0 100 100">
+<circle class="text-surface-variant stroke-current" cx="50" cy="50" fill="transparent" r="40" stroke-width="8"></circle>
+<circle class="text-tertiary stroke-current progress-ring" cx="50" cy="50" fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="163.28" stroke-linecap="round" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-0 flex items-center justify-center font-label-md text-tertiary">35%</div>
+</div>
+</div>
+<div class="mt-4 z-10">
+<div class="flex justify-between font-label-md mb-2">
+<span class="text-on-surface">$2,800</span>
+<span class="text-on-surface-variant">de $8,000</span>
+</div>
+<div class="w-full h-1 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-tertiary w-[35%] rounded-full"></div>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-inverse-on-surface/20 flex items-center gap-2 z-10">
+<span class="material-symbols-outlined text-tertiary text-sm">flight_takeoff</span>
+<span class="font-label-md text-on-surface-variant">Finalización proyectada: <strong>Mar 2025</strong></span>
+</div>
+</div>
+<!-- Add New Goal Placeholder -->
+<button class="glass-card rounded-xl p-lg flex flex-col items-center justify-center gap-sm border-dashed border-2 hover:bg-surface-variant/20 transition-colors duration-300 min-h-[220px]">
+<div class="w-12 h-12 rounded-full bg-surface-variant/50 flex items-center justify-center mb-2">
+<span class="material-symbols-outlined text-on-surface-variant">add</span>
+</div>
+<span class="font-title-md text-on-surface-variant">Crear Nueva Meta</span>
+</button>
+</div>
+</section>
+<!-- Debt Section (Avalanche Method) -->
+<section class="mt-xl">
+<div class="flex justify-between items-end mb-md">
+<div>
+<h2 class="font-title-md text-on-surface flex items-center gap-2">Reducción de Deuda <span class="px-2 py-1 bg-error-container/20 text-error rounded font-label-md">Avalancha Activa</span></h2>
+<p class="font-body-md text-on-surface-variant mt-1">Enfocado en la tasa de interés más alta primero.</p>
+</div>
+</div>
+<div class="bg-surface-container-low rounded-xl border border-inverse-on-surface/20 overflow-hidden">
+<div class="p-lg border-b border-inverse-on-surface/20 bg-surface-container/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+<div>
+<p class="font-label-md text-on-surface-variant uppercase tracking-wider">TOTAL RESTANTE</p>
+<p class="font-numeric-display text-on-surface">$14,500.00</p>
+</div>
+<div class="flex gap-4">
+<div class="text-right">
+<p class="font-label-md text-on-surface-variant uppercase tracking-wider">PAGO MENSUAL</p>
+<p class="font-title-md text-secondary">$850.00</p>
+</div>
+<div class="text-right hidden sm:block">
+<p class="font-label-md text-on-surface-variant uppercase tracking-wider">Est. Debt Free</p>
+<p class="font-title-md text-on-surface">Aug 2025</p>
+</div>
+</div>
+</div>
+<div class="divide-y divide-inverse-on-surface/20">
+<!-- Target Debt -->
+<div class="p-md hover:bg-surface-variant/10 transition-colors flex flex-col sm:flex-row items-center gap-4 relative">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-error"></div>
+<div class="w-12 h-12 rounded-full bg-error-container/20 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-error">credit_card</span>
+</div>
+<div class="flex-grow w-full flex flex-col sm:flex-row justify-between">
+<div>
+<h4 class="font-title-md text-on-surface flex items-center gap-2">Chase Sapphire <span class="bg-error/20 text-error px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">OBJETIVO</span></h4>
+<p class="font-body-md text-on-surface-variant">22.99% APR</p>
+</div>
+<div class="text-left sm:text-right mt-2 sm:mt-0">
+<p class="font-numeric-display text-on-surface text-xl">$4,200</p>
+<p class="font-label-md text-error">Pagando $500/mo</p>
+</div>
+</div>
+</div>
+<!-- Other Debt -->
+<div class="p-md hover:bg-surface-variant/10 transition-colors flex flex-col sm:flex-row items-center gap-4 opacity-70">
+<div class="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant">directions_car</span>
+</div>
+<div class="flex-grow w-full flex flex-col sm:flex-row justify-between">
+<div>
+<h4 class="font-title-md text-on-surface">Auto Loan</h4>
+<p class="font-body-md text-on-surface-variant">4.5% APR</p>
+</div>
+<div class="text-left sm:text-right mt-2 sm:mt-0">
+<p class="font-numeric-display text-on-surface text-xl">$10,300</p>
+<p class="font-label-md text-on-surface-variant">Mín. $350/mo</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar (Mobile) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-surface-container-low/80 dark:bg-surface-container-low/80 backdrop-blur-xl rounded-t-xl md:hidden">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant hover:opacity-80 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">dashboard</span>
+<span class="font-label-md text-label-md mt-1">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant hover:opacity-80 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">receipt_long</span>
+<span class="font-label-md text-label-md mt-1">Actividad</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant hover:opacity-80 active:scale-95 transition-transform duration-150 -mt-6" href="#">
+<div class="bg-secondary text-on-secondary p-3 rounded-full shadow-lg">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+</div>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant hover:opacity-80 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">pie_chart</span>
+<span class="font-label-md text-label-md mt-1">Presupuestos</span>
+</a>
+<a class="flex flex-col items-center justify-center text-tertiary dark:text-tertiary font-medium hover:opacity-80 active:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">emoji_events</span>
+<span class="font-label-md text-label-md mt-1">Metas</span>
+</a>
+</nav>
+<script>
+        // Simple entry animation for progress rings
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                const rings = document.querySelectorAll('.progress-ring');
+                rings.forEach(ring => {
+                    // Trigger reflow to ensure transition happens
+                    void ring.offsetWidth;
+                    // The CSS transitions handle the visual update if we had dynamic data setting styles inline,
+                    // but for static HTML demo, they are set in HTML attributes. A real app would set stroke-dashoffset via JS here.
+                });
+            }, 100);
+        });
+    </script>
+
+
+</body></html>

@@ -1,0 +1,370 @@
+<!DOCTYPE html><html class="dark" lang="en" style="width: 390px; height: 1295px; overflow: hidden; position: relative;"><head></head><body class="antialiased font-body-md text-body-md min-h-screen flex flex-col pb-[80px] md:pb-0 md:flex-row bg-background"><svg aria-hidden="true" class="inline-defs-container" style="position:absolute;width:0;height:0;overflow:hidden"></svg>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Prompt Maestro - Presupuestos y Análisis</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-low": "#1c1c16",
+                      "on-secondary": "#123720",
+                      "surface-tint": "#c8c6c8",
+                      "on-secondary-fixed-variant": "#294e35",
+                      "error": "#ffb4ab",
+                      "surface-bright": "#3a3933",
+                      "surface-container": "#20201a",
+                      "on-primary": "#303032",
+                      "secondary-container": "#2c5137",
+                      "tertiary-fixed-dim": "#ecc246",
+                      "surface-container-highest": "#36352f",
+                      "on-background": "#e6e2d9",
+                      "on-tertiary": "#3d2e00",
+                      "inverse-on-surface": "#31302b",
+                      "secondary-fixed": "#c2edca",
+                      "primary-fixed": "#e4e2e4",
+                      "on-primary-container": "#858486",
+                      "surface-dim": "#14140f",
+                      "on-secondary-fixed": "#00210e",
+                      "background": "#14140f",
+                      "inverse-primary": "#5f5e60",
+                      "primary-container": "#1c1c1e",
+                      "surface-container-high": "#2b2a24",
+                      "inverse-surface": "#e6e2d9",
+                      "on-primary-fixed-variant": "#474649",
+                      "on-error-container": "#ffdad6",
+                      "tertiary": "#ecc246",
+                      "tertiary-container": "#cea72c",
+                      "on-secondary-container": "#99c2a1",
+                      "outline": "#919095",
+                      "outline-variant": "#46464a",
+                      "primary": "#c8c6c8",
+                      "on-surface": "#e6e2d9",
+                      "surface-variant": "#36352f",
+                      "tertiary-fixed": "#ffe08e",
+                      "error-container": "#93000a",
+                      "on-surface-variant": "#c7c6ca",
+                      "on-tertiary-container": "#503d00",
+                      "on-tertiary-fixed": "#241a00",
+                      "secondary-fixed-dim": "#a7d1af",
+                      "on-error": "#690005",
+                      "surface": "#14140f",
+                      "surface-container-lowest": "#0f0e0a",
+                      "primary-fixed-dim": "#c8c6c8",
+                      "on-primary-fixed": "#1b1b1d",
+                      "secondary": "#a7d1af",
+                      "on-tertiary-fixed-variant": "#584400"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "xs": "4px",
+                      "base": "8px",
+                      "margin-desktop": "40px",
+                      "xl": "32px",
+                      "md": "16px",
+                      "sm": "12px",
+                      "gutter": "16px",
+                      "lg": "24px",
+                      "margin-mobile": "20px"
+              },
+              "fontFamily": {
+                      "body-md": ["Inter"],
+                      "numeric-display": ["Inter"],
+                      "title-md": ["IBM Plex Sans"],
+                      "body-lg": ["Inter"],
+                      "label-md": ["IBM Plex Sans"],
+                      "headline-lg-mobile": ["IBM Plex Sans"],
+                      "display-lg": ["IBM Plex Sans"],
+                      "headline-lg": ["IBM Plex Sans"]
+              },
+              "fontSize": {
+                      "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "numeric-display": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                      "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "500"}],
+                      "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                      "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                      "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}]
+              }
+            }
+          }
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=Inter:wght@400;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        body { background-color: theme('colors.background'); color: theme('colors.on-surface'); }
+        .glass-card { background-color: theme('colors.surface-container-low'); border: 1px solid theme('colors.outline-variant'); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+<!-- Mobile Nav Header -->
+<header class="md:hidden flex justify-between items-center w-full px-margin-mobile h-16 bg-background">
+<span class="material-symbols-outlined text-primary text-2xl" style="font-variation-settings: 'FILL' 0;">account_balance_wallet</span>
+<h1 class="font-medium text-title-md font-semibold text-on-surface">Presupuestos</h1>
+<span class="material-symbols-outlined text-primary text-2xl" style="font-variation-settings: 'FILL' 0;">cloud_done</span>
+</header>
+<!-- Desktop Sidebar (Hidden on mobile) -->
+<aside class="hidden md:flex flex-col w-64 h-screen fixed left-0 top-0 border-r border-outline-variant bg-surface-container-low px-4 py-8 z-40">
+<div class="flex items-center gap-3 mb-12 px-4">
+<span class="material-symbols-outlined text-tertiary text-3xl">account_balance_wallet</span>
+<span class="font-title-md text-title-md text-on-surface font-semibold">Prompt Maestro</span>
+</div>
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant/50 transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant/50 transition-colors" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="font-label-md text-label-md">Actividad</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-tertiary bg-surface-variant/20 font-medium" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">pie_chart</span>
+<span class="font-label-md text-label-md">Presupuestos</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-surface-variant hover:bg-surface-variant/50 transition-colors" href="#">
+<span class="material-symbols-outlined">emoji_events</span>
+<span class="font-label-md text-label-md">Metas</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 w-full max-w-[1200px] mx-auto px-margin-mobile md:ml-64 md:px-margin-desktop py-lg flex flex-col gap-xl">
+<!-- Header & Segmented Control -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-md">
+<div>
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface">Presupuestos y Análisis</h2>
+<p class="text-on-surface-variant mt-1">Rastrea tus gastos y proyecta tu liquidez.</p>
+</div>
+<div class="inline-flex bg-surface-container-high rounded-full p-1 border border-outline-variant/30">
+<button class="px-6 py-2 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors">Semanal</button>
+<button class="px-6 py-2 rounded-full bg-surface-variant text-on-surface font-label-md text-label-md shadow-sm">Mensual</button>
+<button class="px-6 py-2 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors">Anual</button>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-lg">
+<!-- Left Column: Budgets & Charts -->
+<div class="lg:col-span-2 flex flex-col gap-lg">
+<div class="glass-card rounded-xl p-lg flex flex-col gap-md">
+<h3 class="font-title-md text-title-md text-on-surface">Presupuestos por Categoría</h3>
+<!-- Budget Item 1: Food -->
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container text-sm">restaurant</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Comida y Restaurantes</p>
+<p class="font-body-md text-body-md text-on-surface-variant text-xs">85% del presupuesto usado</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-numeric-display text-numeric-display text-lg text-on-surface">$850</p>
+<p class="font-body-md text-body-md text-on-surface-variant text-xs">/ $1.000</p>
+</div>
+</div>
+<div class="w-full bg-surface-container-high rounded-full h-1.5 overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 85%"></div>
+</div>
+</div>
+<!-- Budget Item 2: Transport -->
+<div class="flex flex-col gap-2 mt-4">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-sm">directions_car</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Transporte</p>
+<p class="font-body-md text-body-md text-on-surface-variant text-xs">40% del presupuesto usado</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-numeric-display text-numeric-display text-lg text-on-surface">$160</p>
+<p class="font-body-md text-body-md text-on-surface-variant text-xs">/ $400</p>
+</div>
+</div>
+<div class="w-full bg-surface-container-high rounded-full h-1.5 overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 40%"></div>
+</div>
+</div>
+<!-- Budget Item 3: Rent (Alert) -->
+<div class="flex flex-col gap-2 mt-4">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-error-container/20 border border-error/30 flex items-center justify-center">
+<span class="material-symbols-outlined text-error text-sm">home</span>
+</div>
+<div>
+<p class="font-label-md text-label-md text-error">Vivienda y Renta</p>
+<p class="font-body-md text-body-md text-error/70 text-xs">Presupuesto excedido</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-numeric-display text-numeric-display text-lg text-error">$2,100</p>
+<p class="font-body-md text-body-md text-on-surface-variant text-xs">/ $2.000</p>
+</div>
+</div>
+<div class="w-full bg-surface-container-high rounded-full h-1.5 overflow-hidden relative">
+<div class="bg-error h-full rounded-full w-full"></div>
+<div class="absolute right-0 top-0 bottom-0 w-2 bg-background"></div>
+</div>
+</div>
+</div>
+<!-- Liquidity Chart Area -->
+<div class="glass-card rounded-xl p-lg h-64 flex flex-col relative overflow-hidden">
+<h3 class="font-title-md text-title-md text-on-surface mb-4">Proyección de Liquidez</h3>
+<div class="flex-1 relative flex">
+<!-- Y-Axis Labels -->
+<div class="w-10 flex flex-col justify-between text-[10px] text-on-surface-variant font-label-md pr-2 pb-5 z-10">
+<span class="">$5k</span>
+<span class="">$2.5k</span>
+<span class="">$0</span>
+</div>
+<div class="flex-1 relative border-l border-b border-outline-variant/30 flex items-end">
+<!-- Mock Chart Path -->
+<svg class="absolute inset-0 w-full h-full pb-5" preserveAspectRatio="none" viewBox="0 0 100 100">
+<defs>
+<linearGradient id="chartGrad" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#a7d1af" stop-opacity="0.2"></stop>
+<stop offset="100%" stop-color="#a7d1af" stop-opacity="0"></stop>
+</linearGradient>
+</defs>
+<path d="M0,80 Q20,70 40,50 T80,30 T100,20 L100,100 L0,100 Z" fill="url(#chartGrad)"></path>
+<path d="M0,80 Q20,70 40,50 T80,30 T100,20" fill="none" stroke="#a7d1af" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+</svg>
+<div class="absolute inset-0 pb-5 pointer-events-none">
+<!-- Income Point (Emerald Green) -->
+<div class="absolute" style="left: 20%; top: 70%;">
+<div class="w-px h-8 bg-secondary/40 mb-1 mx-auto"></div>
+<div class="flex flex-col items-center -mt-12">
+<span class="material-symbols-outlined text-secondary text-sm bg-background rounded-full p-0.5">payments</span>
+<span class="text-[8px] font-label-md text-secondary uppercase tracking-tighter">Ingreso</span>
+</div>
+</div>
+<!-- Expense Risk (Terracotta/Error) -->
+<div class="absolute" style="left: 55%; top: 45%;">
+<div class="w-px h-10 bg-error/40 mb-1 mx-auto"></div>
+<div class="flex flex-col items-center -mt-14">
+<span class="material-symbols-outlined text-error text-sm bg-background rounded-full p-0.5">receipt</span>
+<span class="text-[8px] font-label-md text-error uppercase tracking-tighter">Gasto</span>
+</div>
+</div>
+<!-- Goal Target (Gold/Tertiary) -->
+<div class="absolute" style="left: 90%; top: 25%;">
+<div class="w-px h-6 bg-tertiary/40 mb-1 mx-auto"></div>
+<div class="flex flex-col items-center -mt-10">
+<span class="material-symbols-outlined text-tertiary text-sm bg-background rounded-full p-0.5">flag</span>
+<span class="text-[8px] font-label-md text-tertiary uppercase tracking-tighter">Meta</span>
+</div>
+</div>
+</div>
+<!-- X-Axis Labels -->
+<div class="absolute -bottom-5 left-0 right-0 flex justify-between text-[10px] text-on-surface-variant font-label-md">
+<span class="">1 Feb</span>
+<span class="">15 Feb</span>
+<span class="">28 Feb</span>
+</div>
+</div>
+</div></div>
+<!-- Secondary Chart: Ahorro Mensual vs Meta -->
+<div class="glass-card rounded-xl p-lg flex flex-col relative overflow-hidden">
+<h3 class="font-title-md text-title-md text-on-surface mb-6">Ahorro Mensual vs Meta</h3>
+<div class="flex-1 flex items-end gap-2 h-32 pl-10 relative">
+<!-- Y-Axis Labels -->
+<div class="absolute left-0 top-0 bottom-0 w-8 flex flex-col justify-between text-[10px] text-on-surface-variant font-label-md z-10">
+<span class="">100%</span>
+<span class="">50%</span>
+<span class="">0%</span>
+</div>
+<!-- Grid Lines -->
+<div class="absolute inset-0 left-10 flex flex-col justify-between border-l border-outline-variant/30 pointer-events-none">
+<div class="w-full border-t border-outline-variant/10"></div>
+<div class="w-full border-t border-outline-variant/10"></div>
+<div class="w-full border-t border-outline-variant/30"></div>
+</div>
+<!-- Bars -->
+<div class="flex-1 flex flex-col items-center justify-end h-full z-10 group">
+<div class="w-full max-w-[40px] bg-secondary/80 rounded-t-sm transition-all group-hover:bg-secondary h-[45%]"></div>
+<span class="text-[10px] text-on-surface-variant mt-2">Ene</span>
+</div>
+<div class="flex-1 flex flex-col items-center justify-end h-full z-10 group">
+<div class="w-full max-w-[40px] bg-secondary/80 rounded-t-sm transition-all group-hover:bg-secondary h-[60%]"></div>
+<span class="text-[10px] text-on-surface-variant mt-2">Feb</span>
+</div>
+<div class="flex-1 flex flex-col items-center justify-end h-full z-10 group">
+<div class="w-full max-w-[40px] bg-tertiary/80 rounded-t-sm transition-all group-hover:bg-tertiary h-[90%] relative">
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 text-xs font-bold text-tertiary">90%</div>
+</div>
+<span class="text-[10px] text-on-surface-variant mt-2">Mar</span>
+</div>
+<div class="flex-1 flex flex-col items-center justify-end h-full z-10 group">
+<div class="w-full max-w-[40px] bg-surface-variant rounded-t-sm h-[30%] border border-dashed border-outline-variant"></div>
+<span class="text-[10px] text-on-surface-variant mt-2">Abr</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: What-If Simulator -->
+<div class="glass-card rounded-xl p-lg flex flex-col gap-md h-fit">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-tertiary">science</span>
+<h3 class="font-title-md text-title-md text-on-surface">Simulador What-If</h3>
+</div>
+<p class="text-body-md text-on-surface-variant text-sm mb-4">Prueba cómo un nuevo gasto afecta tu liquidez mensual.</p>
+<div class="flex flex-col gap-4">
+<div>
+<label class="font-label-md text-label-md text-on-surface block mb-1">Nombre del Gasto</label>
+<input class="w-full bg-surface-container-high border-none rounded-lg px-4 py-3 text-on-surface placeholder:text-on-surface-variant/50 focus:ring-1 focus:ring-tertiary" placeholder="ej. Nueva Laptop" type="text">
+</div>
+<div>
+<label class="font-label-md text-label-md text-on-surface block mb-1">Monto ($)</label>
+<input class="w-full bg-surface-container-high border-none rounded-lg px-4 py-3 text-on-surface placeholder:text-on-surface-variant/50 focus:ring-1 focus:ring-tertiary" placeholder="0.00" type="number">
+</div>
+<button class="mt-2 w-full py-3 rounded-lg bg-secondary-container text-on-secondary-container font-label-md text-label-md hover:bg-secondary-container/80 transition-colors">
+                        Simular Impacto
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- Mobile Bottom Nav -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-surface-container-low/80 backdrop-blur-xl rounded-t-xl border-t-0">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:opacity-80 active:scale-95 transition-transform duration-150 gap-1" href="#">
+<span class="material-symbols-outlined text-2xl">dashboard</span>
+<span class="font-label-md text-[10px]">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:opacity-80 active:scale-95 transition-transform duration-150 gap-1" href="#">
+<span class="material-symbols-outlined text-2xl">receipt_long</span>
+<span class="font-label-md text-[10px]">Actividad</span>
+</a>
+<button class="-mt-10 w-14 h-14 bg-secondary rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform duration-150 border-4 border-background">
+<span class="material-symbols-outlined text-on-secondary text-3xl">add</span>
+</button>
+<a class="flex flex-col items-center justify-center text-tertiary font-medium hover:opacity-80 active:scale-95 transition-transform duration-150 gap-1" href="#">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">pie_chart</span>
+<span class="font-label-md text-[10px]">Presupuestos</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:opacity-80 active:scale-95 transition-transform duration-150 gap-1" href="#">
+<span class="material-symbols-outlined text-2xl">emoji_events</span>
+<span class="font-label-md text-[10px]">Metas</span>
+</a>
+</nav>
+
+
+
+</body></html>
