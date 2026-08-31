@@ -1,17 +1,115 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shared_widgets.dart';
+import '../../../core/database/app_database.dart';
+import '../../../core/database/database_provider.dart';
+import '../../../core/providers/app_providers.dart';
 
 // ---------------------------------------------------------------------------
-// Budget Screen — Presupuestos y Análisis
-// Basado en: presupuestos_an_lisis_avanzado/code.html
+// Budget Screen — Presupuestos y Análisis (datos reales de Drift)
 // ---------------------------------------------------------------------------
 
 enum _BudgetPeriod { weekly, monthly, yearly }
 
-final _periodProvider = StateProvider<_BudgetPeriod>((ref) => _BudgetPeriod.monthly);
+/// Mes navegable seleccionado (por defecto: mes actual)
+final _selectedMonthProvider = StateProvider<DateTime>(
+    (ref) => DateTime(DateTime.now().year, DateTime.now().month));
+
+final _periodProvider =
+    StateProvider<_BudgetPeriod>((ref) => _BudgetPeriod.monthly);
+
+// ---------------------------------------------------------------------------
+// Modelo calculado de presupuesto por categoría
+// ---------------------------------------------------------------------------
+
+class BudgetCategoryData {
+  final Budget budget;
+  final Category category;
+  final double spent;
+  final double progress; // 0.0–1.0
+
+  const BudgetCategoryData({
+    required this.budget,
+    required this.category,
+    required this.spent,
+    required this.progress,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Provider de datos de presupuesto por mes y periodo
+// ---------------------------------------------------------------------------
+
+final _budgetDataProvider =
+    StreamProvider<List<BudgetCategoryData>>((ref) async* {
+  final db = ref.watch(databaseProvider);
+  final selectedMonth = ref.watch(_selectedMonthProvider);
+
+  final start = DateTime(selectedMonth.year, selectedMonth.month, 1);
+  final end = DateTime(selectedMonth.year, selectedMonth.month + 1, 1);
+
+  await for (final txs in db.watchTransactionsByRange(start, end)) {
+    final budgetList = await db.watchAllBudgets().first;
+    final catList = await db.getAllCategories();
+    final catMap = {for (final c in catList) c.id: c};
+
+    // Gastos por categoría en el rango
+    final spentMap = <int, double>{};
+    for (final tx in txs.where((t) => t.type == 'expense')) {
+      spentMap[tx.categoryId] = (spentMap[tx.categoryId] ?? 0) + tx.amount;
+    }
+
+    final result = <BudgetCategoryData>[];
+    for (final budget in budgetList) {
+      final cat = catMap[budget.categoryId];
+      if (cat == null) continue;
+      final spent = spentMap[budget.categoryId] ?? 0.0;
+      result.add(BudgetCategoryData(
+        budget: budget,
+        category: cat,
+        spent: spent,
+        progress: budget.amount > 0
+            ? (spent / budget.amount).clamp(0.0, 1.0)
+            : 0.0,
+      ));
+    }
+
+    result.sort((a, b) => b.spent.compareTo(a.spent));
+    yield result;
+  }
+});
+
+/// Gastos semanales del mes seleccionado (para gráfico de barras)
+final _weeklyExpensesProvider =
+    StreamProvider<List<double>>((ref) async* {
+  final db = ref.watch(databaseProvider);
+  final selectedMonth = ref.watch(_selectedMonthProvider);
+
+  final monthStart =
+      DateTime(selectedMonth.year, selectedMonth.month, 1);
+  final monthEnd =
+      DateTime(selectedMonth.year, selectedMonth.month + 1, 1);
+
+  await for (final txs in db.watchTransactionsByRange(monthStart, monthEnd)) {
+    final expenses = txs.where((t) => t.type == 'expense').toList();
+
+    // Dividir el mes en 4 semanas (semanas del 1 al 7, 8 al 14, 15 al 21, 22+)
+    final weeks = [0.0, 0.0, 0.0, 0.0];
+    for (final tx in expenses) {
+      final day = tx.date.day;
+      final weekIdx = ((day - 1) / 7).floor().clamp(0, 3);
+      weeks[weekIdx] += tx.amount;
+    }
+    yield weeks;
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Screen
+// ---------------------------------------------------------------------------
 
 class BudgetScreen extends ConsumerWidget {
   const BudgetScreen({super.key});
@@ -26,14 +124,11 @@ class BudgetScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header + Period Selector
             FadeSlideIn(
               delay: const Duration(milliseconds: 50),
               child: const _BudgetHeader(),
             ),
             const SizedBox(height: 24),
-
-            // Main grid
             FadeSlideIn(
               delay: const Duration(milliseconds: 100),
               child: const _BudgetContent(),
@@ -46,7 +141,7 @@ class BudgetScreen extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Header
+// Header con navegación de meses y selector de periodo
 // ---------------------------------------------------------------------------
 
 class _BudgetHeader extends ConsumerWidget {
@@ -55,6 +150,8 @@ class _BudgetHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final period = ref.watch(_periodProvider);
+    final selectedMonth = ref.watch(_selectedMonthProvider);
+    final monthFmt = DateFormat('MMMM yyyy', 'es');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,6 +175,49 @@ class _BudgetHeader extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 16),
+
+        // Month navigation
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(
+              onPressed: () {
+                final cur = ref.read(_selectedMonthProvider);
+                ref.read(_selectedMonthProvider.notifier).state =
+                    DateTime(cur.year, cur.month - 1);
+              },
+              icon: const Icon(Icons.chevron_left,
+                  color: AppColors.onSurfaceVariant),
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.surfaceContainerHigh,
+              ),
+            ),
+            Text(
+              monthFmt.format(selectedMonth).toUpperCase(),
+              style: const TextStyle(
+                fontFamily: 'IBM Plex Sans',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.0,
+                color: AppColors.onSurface,
+              ),
+            ),
+            IconButton(
+              onPressed: () {
+                final cur = ref.read(_selectedMonthProvider);
+                ref.read(_selectedMonthProvider.notifier).state =
+                    DateTime(cur.year, cur.month + 1);
+              },
+              icon: const Icon(Icons.chevron_right,
+                  color: AppColors.onSurfaceVariant),
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.surfaceContainerHigh,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
         // Period toggle
         Container(
           padding: const EdgeInsets.all(4),
@@ -141,9 +281,8 @@ class _PeriodButton extends StatelessWidget {
             fontFamily: 'IBM Plex Sans',
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: isSelected
-                ? AppColors.onSurface
-                : AppColors.onSurfaceVariant,
+            color:
+                isSelected ? AppColors.onSurface : AppColors.onSurfaceVariant,
           ),
         ),
       ),
@@ -152,7 +291,7 @@ class _PeriodButton extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Budget Content
+// Budget Content Grid
 // ---------------------------------------------------------------------------
 
 class _BudgetContent extends ConsumerWidget {
@@ -164,9 +303,9 @@ class _BudgetContent extends ConsumerWidget {
     final isWide = width >= 700;
 
     if (isWide) {
-      return Row(
+      return const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           Expanded(flex: 2, child: _BudgetCategories()),
           SizedBox(width: 16),
           Expanded(flex: 1, child: _SpendingAnalysis()),
@@ -185,153 +324,225 @@ class _BudgetContent extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Budget by Category
+// Budget by Category — datos reales de Drift
 // ---------------------------------------------------------------------------
 
-const _budgetData = [
-  (
-    name: 'Comida y Restaurantes',
-    icon: Icons.restaurant,
-    used: 850.0,
-    total: 1000.0,
-    color: AppColors.secondary,
-    bgColor: AppColors.secondaryContainer,
-    iconColor: AppColors.onSecondaryContainer,
-  ),
-  (
-    name: 'Transporte',
-    icon: Icons.directions_car,
-    used: 160.0,
-    total: 400.0,
-    color: AppColors.primary,
-    bgColor: AppColors.primaryContainer,
-    iconColor: AppColors.primary,
-  ),
-  (
-    name: 'Compras',
-    icon: Icons.shopping_bag_outlined,
-    used: 230.0,
-    total: 300.0,
-    color: AppColors.tertiary,
-    bgColor: AppColors.tertiaryContainer,
-    iconColor: AppColors.onTertiary,
-  ),
-  (
-    name: 'Vivienda',
-    icon: Icons.home_outlined,
-    used: 1200.0,
-    total: 1500.0,
-    color: AppColors.error,
-    bgColor: AppColors.errorContainer,
-    iconColor: AppColors.error,
-  ),
-];
-
-class _BudgetCategories extends StatelessWidget {
+class _BudgetCategories extends ConsumerWidget {
   const _BudgetCategories();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final budgetDataAsync = ref.watch(_budgetDataProvider);
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
+        border:
+            Border.all(color: AppColors.outlineVariant.withOpacity(0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Presupuestos por Categoría',
-            style: TextStyle(
-              fontFamily: 'IBM Plex Sans',
-              fontSize: 17,
-              fontWeight: FontWeight.w500,
-              color: AppColors.onSurface,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Presupuestos por Categoría',
+                style: TextStyle(
+                  fontFamily: 'IBM Plex Sans',
+                  fontSize: 17,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.onSurface,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add, color: AppColors.tertiary),
+                tooltip: 'Añadir presupuesto',
+                onPressed: () => _showAddBudgetSheet(context, ref),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
-          ...List.generate(_budgetData.length, (i) {
-            final d = _budgetData[i];
-            final pct = (d.used / d.total).clamp(0.0, 1.0);
-            final isOverBudget = d.used >= d.total * 0.9;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: d.bgColor,
-                        ),
-                        child: Icon(d.icon, color: d.iconColor, size: 18),
+          budgetDataAsync.when(
+            data: (items) {
+              if (items.isEmpty) {
+                return _EmptyBudgetState(
+                    onAdd: () => _showAddBudgetSheet(context, ref));
+              }
+              return Column(
+                children: items.map((d) {
+                  final isOverBudget = d.spent >= d.budget.amount * 0.9;
+                  final color = isOverBudget
+                      ? AppColors.error
+                      : _categoryColor(d.category.colorHex);
+
+                  return Dismissible(
+                    key: ValueKey('budget-${d.budget.id}'),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 16),
+                      decoration: BoxDecoration(
+                        color: AppColors.error.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              d.name,
-                              style: const TextStyle(
-                                fontFamily: 'IBM Plex Sans',
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.onSurface,
-                              ),
-                            ),
-                            Text(
-                              '${(pct * 100).toInt()}% del presupuesto usado',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 11,
-                                color: isOverBudget
-                                    ? AppColors.error
-                                    : AppColors.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                      child: const Icon(Icons.delete_outline,
+                          color: AppColors.error),
+                    ),
+                    confirmDismiss: (_) => _confirmDelete(
+                        context, '¿Eliminar presupuesto de ${d.category.name}?'),
+                    onDismissed: (_) async {
+                      final db = ref.read(databaseProvider);
+                      await db.deleteBudget(d.budget.id);
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 20),
+                      child: Column(
                         children: [
-                          Text(
-                            '\$${d.used.toInt()}',
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.onSurface,
-                            ),
+                          Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: color.withOpacity(0.15),
+                                ),
+                                child: Icon(
+                                  IconData(d.category.iconCode,
+                                      fontFamily: 'MaterialIcons'),
+                                  color: color,
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      d.category.name,
+                                      style: const TextStyle(
+                                        fontFamily: 'IBM Plex Sans',
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.onSurface,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${(d.progress * 100).toInt()}% del presupuesto usado',
+                                      style: TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontSize: 11,
+                                        color: isOverBudget
+                                            ? AppColors.error
+                                            : AppColors.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '\$${d.spent.toInt()}',
+                                    style: const TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.onSurface,
+                                    ),
+                                  ),
+                                  Text(
+                                    '/ \$${d.budget.amount.toInt()}',
+                                    style: const TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 11,
+                                      color: AppColors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                          Text(
-                            '/ \$${d.total.toInt()}',
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 11,
-                              color: AppColors.onSurfaceVariant,
-                            ),
+                          const SizedBox(height: 10),
+                          LinearProgressBar(
+                            progress: d.progress,
+                            color: color,
+                            height: 5,
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  LinearProgressBar(
-                    progress: pct,
-                    color: isOverBudget ? AppColors.error : d.color,
-                    height: 5,
-                  ),
-                ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+            loading: () => const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: CircularProgressIndicator(
+                    color: AppColors.secondary, strokeWidth: 2),
               ),
-            );
-          }),
+            ),
+            error: (e, _) => Text('Error: $e',
+                style: const TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _categoryColor(String hex) {
+    try {
+      final clean = hex.replaceAll('#', '');
+      if (clean.length == 6) {
+        return Color(int.parse('FF$clean', radix: 16));
+      }
+    } catch (_) {}
+    return AppColors.tertiary;
+  }
+}
+
+class _EmptyBudgetState extends StatelessWidget {
+  final VoidCallback onAdd;
+
+  const _EmptyBudgetState({required this.onAdd});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        children: [
+          const SizedBox(height: 16),
+          Icon(Icons.account_balance_wallet_outlined,
+              size: 48,
+              color: AppColors.onSurfaceVariant.withOpacity(0.3)),
+          const SizedBox(height: 12),
+          const Text(
+            'Sin presupuestos definidos',
+            style: TextStyle(
+              fontFamily: 'IBM Plex Sans',
+              fontSize: 14,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: onAdd,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Añadir presupuesto'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.tertiary,
+              side: const BorderSide(color: AppColors.tertiary),
+            ),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -339,14 +550,19 @@ class _BudgetCategories extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Spending Analysis (Bar Chart)
+// Spending Analysis — datos reales
 // ---------------------------------------------------------------------------
 
-class _SpendingAnalysis extends StatelessWidget {
+class _SpendingAnalysis extends ConsumerWidget {
   const _SpendingAnalysis();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final budgetDataAsync = ref.watch(_budgetDataProvider);
+    final weeklyAsync = ref.watch(_weeklyExpensesProvider);
+    final selectedMonth = ref.watch(_selectedMonthProvider);
+    final monthFmt = DateFormat('MMMM', 'es');
+
     return Column(
       children: [
         // Summary card
@@ -361,9 +577,9 @@ class _SpendingAnalysis extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Resumen del Mes',
-                style: TextStyle(
+              Text(
+                'Resumen — ${monthFmt.format(selectedMonth)}',
+                style: const TextStyle(
                   fontFamily: 'IBM Plex Sans',
                   fontSize: 17,
                   fontWeight: FontWeight.w500,
@@ -371,31 +587,65 @@ class _SpendingAnalysis extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              _SummaryRow(
-                  label: 'Total Presupuestado',
-                  value: '\$3,200',
-                  color: AppColors.onSurface),
-              const SizedBox(height: 10),
-              _SummaryRow(
-                  label: 'Total Gastado',
-                  value: '\$2,440',
-                  color: AppColors.secondary),
-              const SizedBox(height: 10),
-              _SummaryRow(
-                  label: 'Restante',
-                  value: '\$760',
-                  color: AppColors.tertiary),
-              const SizedBox(height: 16),
-              LinearProgressBar(
-                progress: 2440 / 3200,
-                color: AppColors.secondary,
-                height: 8,
+              budgetDataAsync.when(
+                data: (items) {
+                  final totalBudget = items.fold(
+                      0.0, (s, d) => s + d.budget.amount);
+                  final totalSpent =
+                      items.fold(0.0, (s, d) => s + d.spent);
+                  final remaining =
+                      (totalBudget - totalSpent).clamp(0.0, double.infinity);
+                  final progress = totalBudget > 0
+                      ? (totalSpent / totalBudget).clamp(0.0, 1.0)
+                      : 0.0;
+
+                  if (items.isEmpty) {
+                    return const Text(
+                      'Añade presupuestos para ver el resumen.',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 13,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      _SummaryRow(
+                          label: 'Total Presupuestado',
+                          value: '\$${totalBudget.toInt()}',
+                          color: AppColors.onSurface),
+                      const SizedBox(height: 10),
+                      _SummaryRow(
+                          label: 'Total Gastado',
+                          value: '\$${totalSpent.toInt()}',
+                          color: AppColors.secondary),
+                      const SizedBox(height: 10),
+                      _SummaryRow(
+                          label: 'Restante',
+                          value: '\$${remaining.toInt()}',
+                          color: AppColors.tertiary),
+                      const SizedBox(height: 16),
+                      LinearProgressBar(
+                        progress: progress,
+                        color: progress >= 0.9
+                            ? AppColors.error
+                            : AppColors.secondary,
+                        height: 8,
+                      ),
+                    ],
+                  );
+                },
+                loading: () => const CircularProgressIndicator(
+                    color: AppColors.secondary, strokeWidth: 2),
+                error: (e, _) => Text('Error: $e'),
               ),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        // Weekly bar chart
+        // Weekly bar chart — datos reales
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -417,78 +667,96 @@ class _SpendingAnalysis extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              SizedBox(
-                height: 160,
-                child: BarChart(
-                  BarChartData(
-                    backgroundColor: Colors.transparent,
-                    gridData: FlGridData(
-                      show: true,
-                      drawVerticalLine: false,
-                      horizontalInterval: 200,
-                      getDrawingHorizontalLine: (v) => FlLine(
-                        color: AppColors.outlineVariant.withOpacity(0.2),
-                        strokeWidth: 1,
-                      ),
-                    ),
-                    borderData: FlBorderData(show: false),
-                    titlesData: FlTitlesData(
-                      leftTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false)),
-                      rightTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false)),
-                      topTitles: const AxisTitles(
-                          sideTitles: SideTitles(showTitles: false)),
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          getTitlesWidget: (v, _) {
-                            const weeks = ['S1', 'S2', 'S3', 'S4'];
-                            return Text(
-                              weeks[v.toInt()],
-                              style: const TextStyle(
-                                fontFamily: 'IBM Plex Sans',
-                                fontSize: 11,
-                                color: AppColors.onSurfaceVariant,
-                              ),
-                            );
-                          },
+              weeklyAsync.when(
+                data: (weeks) {
+                  final maxY = weeks.reduce((a, b) => a > b ? a : b);
+                  final chartMax = maxY > 0 ? (maxY * 1.3).ceilToDouble() : 100.0;
+                  final hasData = weeks.any((w) => w > 0);
+
+                  if (!hasData) {
+                    return const SizedBox(
+                      height: 100,
+                      child: Center(
+                        child: Text(
+                          'Sin gastos este mes',
+                          style: TextStyle(
+                            fontFamily: 'IBM Plex Sans',
+                            fontSize: 13,
+                            color: AppColors.onSurfaceVariant,
+                          ),
                         ),
                       ),
+                    );
+                  }
+
+                  return SizedBox(
+                    height: 160,
+                    child: BarChart(
+                      BarChartData(
+                        backgroundColor: Colors.transparent,
+                        gridData: FlGridData(
+                          show: true,
+                          drawVerticalLine: false,
+                          horizontalInterval: chartMax / 4,
+                          getDrawingHorizontalLine: (v) => FlLine(
+                            color: AppColors.outlineVariant.withOpacity(0.2),
+                            strokeWidth: 1,
+                          ),
+                        ),
+                        borderData: FlBorderData(show: false),
+                        titlesData: FlTitlesData(
+                          leftTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
+                          topTitles: const AxisTitles(
+                              sideTitles: SideTitles(showTitles: false)),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              getTitlesWidget: (v, _) {
+                                const labels = ['S1', 'S2', 'S3', 'S4'];
+                                return Text(
+                                  labels[v.toInt()],
+                                  style: const TextStyle(
+                                    fontFamily: 'IBM Plex Sans',
+                                    fontSize: 11,
+                                    color: AppColors.onSurfaceVariant,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        barGroups: weeks.asMap().entries.map((e) {
+                          final isLast = e.key == weeks.length - 1;
+                          return BarChartGroupData(
+                            x: e.key,
+                            barRods: [
+                              BarChartRodData(
+                                toY: e.value,
+                                color: isLast
+                                    ? AppColors.tertiary
+                                    : AppColors.secondary.withOpacity(0.6),
+                                width: 24,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                        maxY: chartMax,
+                      ),
                     ),
-                    barGroups: [
-                      BarChartGroupData(x: 0, barRods: [
-                        BarChartRodData(
-                            toY: 620,
-                            color: AppColors.secondary.withOpacity(0.6),
-                            width: 24,
-                            borderRadius: BorderRadius.circular(6))
-                      ]),
-                      BarChartGroupData(x: 1, barRods: [
-                        BarChartRodData(
-                            toY: 780,
-                            color: AppColors.secondary.withOpacity(0.6),
-                            width: 24,
-                            borderRadius: BorderRadius.circular(6))
-                      ]),
-                      BarChartGroupData(x: 2, barRods: [
-                        BarChartRodData(
-                            toY: 550,
-                            color: AppColors.secondary.withOpacity(0.6),
-                            width: 24,
-                            borderRadius: BorderRadius.circular(6))
-                      ]),
-                      BarChartGroupData(x: 3, barRods: [
-                        BarChartRodData(
-                            toY: 490,
-                            color: AppColors.tertiary,
-                            width: 24,
-                            borderRadius: BorderRadius.circular(6))
-                      ]),
-                    ],
-                    maxY: 1000,
+                  );
+                },
+                loading: () => const SizedBox(
+                  height: 100,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                        color: AppColors.secondary, strokeWidth: 2),
                   ),
                 ),
+                error: (e, _) => Text('Error: $e'),
               ),
             ],
           ),
@@ -534,6 +802,160 @@ class _SummaryRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Confirmación de borrado
+// ---------------------------------------------------------------------------
+
+Future<bool> _confirmDelete(BuildContext context, String message) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: AppColors.surfaceContainerLow,
+      title: const Text(
+        'Confirmar eliminación',
+        style: TextStyle(
+          fontFamily: 'IBM Plex Sans',
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: AppColors.onSurface,
+        ),
+      ),
+      content: Text(
+        message,
+        style: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+          color: AppColors.onSurfaceVariant,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancelar',
+              style: TextStyle(color: AppColors.onSurfaceVariant)),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Eliminar',
+              style: TextStyle(color: AppColors.error)),
+        ),
+      ],
+    ),
+  );
+  return result ?? false;
+}
+
+// ---------------------------------------------------------------------------
+// Add Budget Bottom Sheet
+// ---------------------------------------------------------------------------
+
+void _showAddBudgetSheet(BuildContext context, WidgetRef ref) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: AppColors.surfaceContainerLow,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (ctx) => _AddBudgetSheet(),
+  );
+}
+
+class _AddBudgetSheet extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_AddBudgetSheet> createState() => _AddBudgetSheetState();
+}
+
+class _AddBudgetSheetState extends ConsumerState<_AddBudgetSheet> {
+  final _amountController = TextEditingController();
+  Category? _selectedCategory;
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final catsAsync = ref.watch(categoriesProvider);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
+        left: 20,
+        right: 20,
+        top: 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Nuevo Presupuesto',
+            style: TextStyle(
+              fontFamily: 'IBM Plex Sans',
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppColors.onSurface,
+            ),
+          ),
+          const SizedBox(height: 20),
+          catsAsync.when(
+            data: (cats) => DropdownButtonFormField<Category>(
+              value: _selectedCategory,
+              dropdownColor: AppColors.surfaceContainerLow,
+              decoration: const InputDecoration(
+                labelText: 'Categoría',
+                labelStyle: TextStyle(color: AppColors.onSurfaceVariant),
+              ),
+              style: const TextStyle(color: AppColors.onSurface),
+              items: cats
+                  .map((c) => DropdownMenuItem(
+                        value: c,
+                        child: Text(c.name),
+                      ))
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedCategory = v),
+            ),
+            loading: () => const CircularProgressIndicator(strokeWidth: 2),
+            error: (e, _) => Text('Error: $e'),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _amountController,
+            decoration: const InputDecoration(
+              labelText: 'Límite mensual (\$)',
+              labelStyle: TextStyle(color: AppColors.onSurfaceVariant),
+            ),
+            keyboardType: TextInputType.number,
+            style: const TextStyle(color: AppColors.onSurface),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () async {
+                final amount = double.tryParse(_amountController.text) ?? 0;
+                if (_selectedCategory == null || amount <= 0) return;
+
+                final db = ref.read(databaseProvider);
+                await db.insertBudget(BudgetsCompanion.insert(
+                  categoryId: _selectedCategory!.id,
+                  amount: amount,
+                ));
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: const Text('Guardar Presupuesto'),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
     );
   }
 }

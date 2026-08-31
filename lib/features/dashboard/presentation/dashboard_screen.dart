@@ -6,11 +6,10 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shared_widgets.dart';
 import '../../../core/database/app_database.dart';
-import 'dashboard_providers.dart';
+import '../../../core/providers/app_providers.dart';
 
 // ---------------------------------------------------------------------------
 // Dashboard Screen
-// Fiel al diseño HTML: dashboard_vista_en_espa_ol/code.html
 // ---------------------------------------------------------------------------
 
 class DashboardScreen extends ConsumerWidget {
@@ -24,7 +23,8 @@ class DashboardScreen extends ConsumerWidget {
       body: RefreshIndicator(
         color: AppColors.secondary,
         backgroundColor: AppColors.surfaceContainerHigh,
-        onRefresh: () async => await Future.delayed(const Duration(milliseconds: 600)),
+        onRefresh: () async =>
+            await Future.delayed(const Duration(milliseconds: 600)),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -61,7 +61,7 @@ class DashboardScreen extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Net Worth Section
+// Net Worth Section — conectado a netWorthProvider reactivo
 // ---------------------------------------------------------------------------
 
 class _NetWorthSection extends ConsumerWidget {
@@ -69,7 +69,7 @@ class _NetWorthSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final netWorth = ref.watch(netWorthProvider);
+    final netWorthAsync = ref.watch(netWorthProvider);
     final fmt = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
 
     return Center(
@@ -87,15 +87,35 @@ class _NetWorthSection extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            fmt.format(netWorth),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 40,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.8,
-              color: AppColors.tertiary,
+          netWorthAsync.when(
+            data: (netWorth) => Text(
+              fmt.format(netWorth),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 40,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.8,
+                color: netWorth >= 0 ? AppColors.tertiary : AppColors.error,
+              ),
+            ),
+            loading: () => const Text(
+              '--',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 40,
+                fontWeight: FontWeight.w600,
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+            error: (_, __) => const Text(
+              '\$0.00',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 40,
+                fontWeight: FontWeight.w600,
+                color: AppColors.onSurfaceVariant,
+              ),
             ),
           ),
         ],
@@ -115,6 +135,13 @@ class _HorizontalCards extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final income = ref.watch(monthlyIncomeProvider);
     final expenses = ref.watch(monthlyExpensesProvider);
+    final budgetLimit = ref.watch(totalBudgetLimitProvider);
+
+    final incomeVal = income.value ?? 0.0;
+    final expensesVal = expenses.value ?? 0.0;
+    final budgetVal = budgetLimit.value ?? 0.0;
+    final budgetRemaining = (budgetVal - expensesVal).clamp(0.0, double.infinity);
+    final budgetProgress = budgetVal > 0 ? (expensesVal / budgetVal).clamp(0.0, 1.0) : 0.0;
 
     return SizedBox(
       height: 180,
@@ -130,22 +157,24 @@ class _HorizontalCards extends ConsumerWidget {
               children: [
                 _IncomeExpenseRow(
                   label: 'Ingresos',
-                  amount: income.value ?? 4250.0,
+                  amount: incomeVal,
                   isIncome: true,
-                  fraction: 0.75,
+                  fraction: incomeVal > 0 ? 1.0 : 0.0,
                 ),
                 const SizedBox(height: 12),
                 _IncomeExpenseRow(
                   label: 'Gastos',
-                  amount: expenses.value ?? 3200.0,
+                  amount: expensesVal,
                   isIncome: false,
-                  fraction: (expenses.value ?? 3200) / (income.value ?? 8500),
+                  fraction: incomeVal > 0
+                      ? (expensesVal / incomeVal).clamp(0.0, 1.0)
+                      : 0.0,
                 ),
               ],
             ),
           ),
           const SizedBox(width: 12),
-          // Card 2 — Presupuesto Restante
+          // Card 2 — Presupuesto Restante (datos reales)
           _SummaryCard(
             title: 'Presupuesto Restante',
             backgroundIcon: Icons.account_balance_outlined,
@@ -163,48 +192,63 @@ class _HorizontalCards extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text(
-                      '\$1,800',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 24,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.onSurface,
+                budgetVal == 0
+                    ? const Text(
+                        'Sin presupuesto',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 16,
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '\$${budgetRemaining.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 24,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.onSurface,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '/ \$${budgetVal.toStringAsFixed(0)}',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 13,
+                              color: AppColors.onSurfaceVariant.withOpacity(0.7),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '/ \$5,000',
+                if (budgetVal > 0) ...[
+                  const SizedBox(height: 10),
+                  LinearProgressBar(
+                    progress: budgetProgress,
+                    color: budgetProgress >= 0.9
+                        ? AppColors.error
+                        : AppColors.tertiary,
+                    height: 6,
+                  ),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      '${(budgetProgress * 100).toInt()}% consumido',
                       style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 13,
-                        color: AppColors.onSurfaceVariant.withOpacity(0.7),
+                        fontFamily: 'IBM Plex Sans',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: budgetProgress >= 0.9
+                            ? AppColors.error
+                            : AppColors.tertiary,
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                LinearProgressBar(
-                  progress: 0.64,
-                  color: AppColors.tertiary,
-                  height: 6,
-                ),
-                const SizedBox(height: 6),
-                const Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    '64% consumido',
-                    style: TextStyle(
-                      fontFamily: 'IBM Plex Sans',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.tertiary,
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -325,7 +369,7 @@ class _IncomeExpenseRow extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Charts & Recent Activity (grid: 2/3 chart + 1/3 activity)
+// Charts & Recent Activity
 // ---------------------------------------------------------------------------
 
 class _ChartsAndActivity extends ConsumerWidget {
@@ -358,57 +402,16 @@ class _ChartsAndActivity extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Donut Chart Card & Dynamic Callout Lines
+// Donut Chart Card — sin datos fallback
 // ---------------------------------------------------------------------------
 
 class _DonutChartCard extends ConsumerWidget {
   const _DonutChartCard();
 
-  static final _fallbackItems = [
-    CategoryExpense(
-      categoryId: 1,
-      name: 'Vivienda',
-      amount: 1280.0,
-      percentage: 0.40,
-      iconCode: 0xe88a, // home
-      color: AppColors.tertiary,
-    ),
-    CategoryExpense(
-      categoryId: 2,
-      name: 'Alimentos',
-      amount: 800.0,
-      percentage: 0.25,
-      iconCode: 0xe56c, // restaurant
-      color: AppColors.secondary,
-    ),
-    CategoryExpense(
-      categoryId: 3,
-      name: 'Ocio',
-      amount: 640.0,
-      percentage: 0.20,
-      iconCode: 0xe63a, // theater_comedy
-      color: AppColors.error,
-    ),
-    CategoryExpense(
-      categoryId: 4,
-      name: 'Otros',
-      amount: 480.0,
-      percentage: 0.15,
-      iconCode: 0xe574, // category
-      color: AppColors.inversePrimary,
-    ),
-  ];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final expensesAsync = ref.watch(categoryExpensesProvider);
     final totalExpensesAsync = ref.watch(monthlyExpensesProvider);
-
-    final items = expensesAsync.value ?? [];
-    final displayItems = items.isNotEmpty ? items : _fallbackItems;
-
-    final double calculatedTotal = displayItems.fold<double>(0.0, (double sum, CategoryExpense item) => sum + item.amount);
-    final double totalExpenses = totalExpensesAsync.value ?? calculatedTotal;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -439,48 +442,102 @@ class _DonutChartCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 12),
-          // Donut Chart Graphic with Callout Lines & Center Hole
-          Center(
-            child: _DonutCalloutGraphic(
-              items: displayItems,
-              totalExpenses: totalExpenses,
+          expensesAsync.when(
+            data: (items) {
+              if (items.isEmpty) {
+                return const _EmptyChartState(
+                  message: 'Sin gastos este mes',
+                  icon: Icons.pie_chart_outline,
+                );
+              }
+              final total = totalExpensesAsync.value ??
+                  items.fold<double>(0.0, (s, i) => s + i.amount);
+              return Column(
+                children: [
+                  Center(
+                    child: _DonutCalloutGraphic(
+                        items: items, totalExpenses: total),
+                  ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 16,
+                      runSpacing: 8,
+                      children: items
+                          .map((s) => Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: BoxDecoration(
+                                      color: s.color,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${s.name} (${(s.percentage * 100).toInt()}%)',
+                                    style: const TextStyle(
+                                      fontFamily: 'IBM Plex Sans',
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.onSurface,
+                                    ),
+                                  ),
+                                ],
+                              ))
+                          .toList(),
+                    ),
+                  ),
+                ],
+              );
+            },
+            loading: () => const SizedBox(
+              height: 220,
+              child: Center(
+                child: CircularProgressIndicator(
+                    color: AppColors.secondary, strokeWidth: 2),
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          // Centered Legend
-          Center(
-            child: Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 16,
-              runSpacing: 8,
-              children: displayItems
-                  .map((s) => Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: s.color,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${s.name} (${(s.percentage * 100).toInt()}%)',
-                            style: const TextStyle(
-                              fontFamily: 'IBM Plex Sans',
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.onSurface,
-                            ),
-                          ),
-                        ],
-                      ))
-                  .toList(),
-            ),
+            error: (e, _) => Text('Error: $e',
+                style: const TextStyle(color: AppColors.error)),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _EmptyChartState extends StatelessWidget {
+  final String message;
+  final IconData icon;
+
+  const _EmptyChartState({required this.message, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 160,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon,
+                size: 48,
+                color: AppColors.onSurfaceVariant.withOpacity(0.3)),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              style: const TextStyle(
+                fontFamily: 'IBM Plex Sans',
+                fontSize: 14,
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -504,7 +561,7 @@ class _DonutCalloutGraphic extends StatelessWidget {
     const double outerRadius = 70.0;
 
     // Compute midAngles for items
-    double currentAngle = -1.5707963267948966; // -90 degrees (12 o'clock)
+    double currentAngle = -1.5707963267948966; // -90° (12 o'clock)
     final angles = <double>[];
     for (final item in items) {
       final sweep = item.percentage * 6.283185307179586;
@@ -657,8 +714,10 @@ class _DonutCalloutLinesPainter extends CustomPainter {
       final item = items[i];
       final angle = angles[i];
 
-      final pStart = center + Offset(cos(angle) * startRadius, sin(angle) * startRadius);
-      final pEnd = center + Offset(cos(angle) * endRadius, sin(angle) * endRadius);
+      final pStart =
+          center + Offset(cos(angle) * startRadius, sin(angle) * startRadius);
+      final pEnd =
+          center + Offset(cos(angle) * endRadius, sin(angle) * endRadius);
 
       final linePaint = Paint()
         ..color = item.color.withOpacity(0.8)
@@ -734,6 +793,12 @@ class _RecentActivityCard extends ConsumerWidget {
               final catMap = {
                 for (final c in catsAsync.value ?? <Category>[]) c.id: c
               };
+              if (txs.isEmpty) {
+                return const _EmptyChartState(
+                  message: 'Sin transacciones aún',
+                  icon: Icons.receipt_long_outlined,
+                );
+              }
               return Column(
                 children: txs
                     .take(5)
@@ -773,7 +838,8 @@ class _TransactionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIncome = transaction.type == 'income';
-    final iconColor = isIncome ? AppColors.tertiary : AppColors.onSecondaryContainer;
+    final iconColor =
+        isIncome ? AppColors.tertiary : AppColors.onSecondaryContainer;
     final bgColor = isIncome
         ? AppColors.tertiaryContainer.withOpacity(0.2)
         : AppColors.secondaryContainer;

@@ -4,7 +4,8 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shared_widgets.dart';
 import '../../../core/database/app_database.dart';
-import '../../dashboard/presentation/dashboard_providers.dart';
+import '../../../core/database/database_provider.dart';
+import '../../../core/providers/app_providers.dart';
 
 // ---------------------------------------------------------------------------
 // Activity Screen — Historial de transacciones
@@ -168,6 +169,45 @@ class _Chip extends StatelessWidget {
 class _TransactionList extends ConsumerWidget {
   const _TransactionList();
 
+  Future<bool> _confirmDelete(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceContainerLow,
+        title: const Text(
+          'Eliminar transacción',
+          style: TextStyle(
+            fontFamily: 'IBM Plex Sans',
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.onSurface,
+          ),
+        ),
+        content: const Text(
+          '¿Estás seguro? Esta acción no se puede deshacer.',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar',
+                style: TextStyle(color: AppColors.onSurfaceVariant)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar',
+                style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final txsAsync = ref.watch(recentTransactionsProvider);
@@ -252,25 +292,47 @@ class _TransactionList extends ConsumerWidget {
                     border: Border.all(
                         color: AppColors.onSurface.withOpacity(0.05)),
                   ),
-                  child: Column(
-                    children: items.asMap().entries.map((entry) {
-                      final idx = entry.key;
-                      final tx = entry.value;
-                      return Column(
-                        children: [
-                          _ActivityRow(
-                              transaction: tx,
-                              category: catMap[tx.categoryId]),
-                          if (idx < items.length - 1)
-                            Divider(
-                              height: 1,
-                              color:
-                                  AppColors.outlineVariant.withOpacity(0.15),
-                              indent: 68,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Column(
+                      children: items.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final tx = entry.value;
+                        return Column(
+                          children: [
+                            Dismissible(
+                              key: ValueKey('tx-${tx.id}'),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                padding:
+                                    const EdgeInsets.only(right: 20),
+                                color: AppColors.error.withOpacity(0.15),
+                                child: const Icon(
+                                    Icons.delete_outline,
+                                    color: AppColors.error),
+                              ),
+                              confirmDismiss: (_) =>
+                                  _confirmDelete(context),
+                              onDismissed: (_) async {
+                                final db = ref.read(databaseProvider);
+                                await db.deleteTransaction(tx.id);
+                              },
+                              child: _ActivityRow(
+                                  transaction: tx,
+                                  category: catMap[tx.categoryId]),
                             ),
-                        ],
-                      );
-                    }).toList(),
+                            if (idx < items.length - 1)
+                              Divider(
+                                height: 1,
+                                color: AppColors.outlineVariant
+                                    .withOpacity(0.15),
+                                indent: 68,
+                              ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
