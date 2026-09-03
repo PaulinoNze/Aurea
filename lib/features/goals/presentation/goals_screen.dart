@@ -203,16 +203,30 @@ class _GoalCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            goal.name,
-                            style: const TextStyle(
-                              fontFamily: 'IBM Plex Sans',
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.onSurface,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  goal.name,
+                                  style: const TextStyle(
+                                    fontFamily: 'IBM Plex Sans',
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.onSurface,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline,
+                                    size: 18, color: AppColors.error),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                tooltip: 'Eliminar meta',
+                                onPressed: onDelete,
+                              ),
+                            ],
                           ),
                           Text(
                             _typeLabel(goal.goalType),
@@ -225,10 +239,11 @@ class _GoalCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     ProgressRing(
                       progress: progress,
                       color: color,
-                      size: 50,
+                      size: 46,
                       label: '$pctInt%',
                     ),
                   ],
@@ -528,7 +543,18 @@ class _DebtsSection extends ConsumerWidget {
                             final db = ref.read(databaseProvider);
                             await db.deleteDebt(debt.id);
                           },
-                          child: _DebtRow(debt: debt, isTarget: isTarget),
+                          child: _DebtRow(
+                            debt: debt,
+                            isTarget: isTarget,
+                            onDelete: () async {
+                              final confirmed = await _confirmDelete(context,
+                                  '¿Eliminar la deuda "${debt.name}"?');
+                              if (confirmed) {
+                                final db = ref.read(databaseProvider);
+                                await db.deleteDebt(debt.id);
+                              }
+                            },
+                          ),
                         ),
                         if (i < debts.length - 1)
                           Divider(
@@ -596,8 +622,13 @@ class _EmptyDebtsState extends StatelessWidget {
 class _DebtRow extends StatelessWidget {
   final Debt debt;
   final bool isTarget;
+  final VoidCallback onDelete;
 
-  const _DebtRow({required this.debt, required this.isTarget});
+  const _DebtRow({
+    required this.debt,
+    required this.isTarget,
+    required this.onDelete,
+  });
 
   /// Calcula los meses para pagar la deuda con la fórmula de amortización estándar.
   /// Si la tasa es 0%, divide monto / pago mensual.
@@ -753,6 +784,13 @@ class _DebtRow extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.delete_outline,
+                  color: AppColors.error, size: 20),
+              tooltip: 'Eliminar deuda',
+              onPressed: onDelete,
+            ),
           ],
         ),
       ),
@@ -767,16 +805,19 @@ class _DebtRow extends StatelessWidget {
 void _showAddGoalSheet(BuildContext context, WidgetRef ref) {
   showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: AppColors.surfaceContainerLow,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (ctx) => _AddGoalSheet(),
+    builder: (ctx) => const _AddGoalSheet(),
   );
 }
 
 class _AddGoalSheet extends ConsumerStatefulWidget {
+  const _AddGoalSheet({super.key});
+
   @override
   ConsumerState<_AddGoalSheet> createState() => _AddGoalSheetState();
 }
@@ -830,13 +871,15 @@ class _AddGoalSheetState extends ConsumerState<_AddGoalSheet> {
   @override
   Widget build(BuildContext context) {
     final dateFmt = DateFormat('d MMMM yyyy', 'es');
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(context).bottom,
+        bottom: bottomInset + bottomPadding + 32,
         left: 20,
         right: 20,
-        top: 20,
+        top: 24,
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -1054,16 +1097,19 @@ class _AddGoalSheetState extends ConsumerState<_AddGoalSheet> {
 void _showAddDebtSheet(BuildContext context, WidgetRef ref) {
   showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: AppColors.surfaceContainerLow,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (ctx) => _AddDebtSheet(),
+    builder: (ctx) => const _AddDebtSheet(),
   );
 }
 
 class _AddDebtSheet extends ConsumerStatefulWidget {
+  const _AddDebtSheet({super.key});
+
   @override
   ConsumerState<_AddDebtSheet> createState() => _AddDebtSheetState();
 }
@@ -1087,12 +1133,15 @@ class _AddDebtSheetState extends ConsumerState<_AddDebtSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(context).bottom,
+        bottom: bottomInset + bottomPadding + 32,
         left: 20,
         right: 20,
-        top: 20,
+        top: 24,
       ),
       child: SingleChildScrollView(
         child: Column(

@@ -320,7 +320,14 @@ class _TransactionList extends ConsumerWidget {
                               },
                               child: _ActivityRow(
                                   transaction: tx,
-                                  category: catMap[tx.categoryId]),
+                                  category: catMap[tx.categoryId],
+                                  onDelete: () async {
+                                    final confirmed = await _confirmDelete(context);
+                                    if (confirmed) {
+                                      final db = ref.read(databaseProvider);
+                                      await db.deleteTransaction(tx.id);
+                                    }
+                                  }),
                             ),
                             if (idx < items.length - 1)
                               Divider(
@@ -353,8 +360,13 @@ class _TransactionList extends ConsumerWidget {
 class _ActivityRow extends StatelessWidget {
   final Transaction transaction;
   final Category? category;
+  final VoidCallback onDelete;
 
-  const _ActivityRow({required this.transaction, this.category});
+  const _ActivityRow({
+    required this.transaction,
+    this.category,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -432,6 +444,15 @@ class _ActivityRow extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(width: 6),
+          IconButton(
+            icon: const Icon(Icons.delete_outline,
+                color: AppColors.error, size: 18),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: 'Eliminar transacción',
+            onPressed: onDelete,
           ),
         ],
       ),

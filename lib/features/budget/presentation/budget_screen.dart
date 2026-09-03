@@ -47,16 +47,40 @@ final _budgetDataProvider =
     StreamProvider<List<BudgetCategoryData>>((ref) async* {
   final db = ref.watch(databaseProvider);
   final selectedMonth = ref.watch(_selectedMonthProvider);
+  final period = ref.watch(_periodProvider);
 
-  final start = DateTime(selectedMonth.year, selectedMonth.month, 1);
-  final end = DateTime(selectedMonth.year, selectedMonth.month + 1, 1);
+  DateTime start;
+  DateTime end;
+  double multiplier = 1.0;
+
+  switch (period) {
+    case _BudgetPeriod.weekly:
+      final now = DateTime.now();
+      final baseDate = (now.year == selectedMonth.year && now.month == selectedMonth.month)
+          ? now
+          : DateTime(selectedMonth.year, selectedMonth.month, 15);
+      final weekStart = baseDate.subtract(Duration(days: baseDate.weekday - 1));
+      start = DateTime(weekStart.year, weekStart.month, weekStart.day);
+      end = start.add(const Duration(days: 7));
+      multiplier = 0.25;
+      break;
+    case _BudgetPeriod.monthly:
+      start = DateTime(selectedMonth.year, selectedMonth.month, 1);
+      end = DateTime(selectedMonth.year, selectedMonth.month + 1, 1);
+      multiplier = 1.0;
+      break;
+    case _BudgetPeriod.yearly:
+      start = DateTime(selectedMonth.year, 1, 1);
+      end = DateTime(selectedMonth.year + 1, 1, 1);
+      multiplier = 12.0;
+      break;
+  }
 
   await for (final txs in db.watchTransactionsByRange(start, end)) {
     final budgetList = await db.watchAllBudgets().first;
     final catList = await db.getAllCategories();
     final catMap = {for (final c in catList) c.id: c};
 
-    // Gastos por categoría en el rango
     final spentMap = <int, double>{};
     for (final tx in txs.where((t) => t.type == 'expense')) {
       spentMap[tx.categoryId] = (spentMap[tx.categoryId] ?? 0) + tx.amount;
@@ -67,12 +91,18 @@ final _budgetDataProvider =
       final cat = catMap[budget.categoryId];
       if (cat == null) continue;
       final spent = spentMap[budget.categoryId] ?? 0.0;
+      final adjustedLimit = budget.amount * multiplier;
       result.add(BudgetCategoryData(
-        budget: budget,
+        budget: Budget(
+          id: budget.id,
+          categoryId: budget.categoryId,
+          amount: adjustedLimit,
+          period: budget.period,
+        ),
         category: cat,
         spent: spent,
-        progress: budget.amount > 0
-            ? (spent / budget.amount).clamp(0.0, 1.0)
+        progress: adjustedLimit > 0
+            ? (spent / adjustedLimit).clamp(0.0, 1.0)
             : 0.0,
       ));
     }
@@ -82,28 +112,90 @@ final _budgetDataProvider =
   }
 });
 
-/// Gastos semanales del mes seleccionado (para gráfico de barras)
-final _weeklyExpensesProvider =
-    StreamProvider<List<double>>((ref) async* {
+class PeriodExpensesData {
+  final String chartTitle;
+  final List<String> labels;
+  final List<double> values;
+
+  const PeriodExpensesData({
+    required this.chartTitle,
+    required this.labels,
+    required this.values,
+  });
+}
+
+final _periodExpensesProvider =
+    StreamProvider<PeriodExpensesData>((ref) async* {
   final db = ref.watch(databaseProvider);
   final selectedMonth = ref.watch(_selectedMonthProvider);
+  final period = ref.watch(_periodProvider);
 
-  final monthStart =
-      DateTime(selectedMonth.year, selectedMonth.month, 1);
-  final monthEnd =
-      DateTime(selectedMonth.year, selectedMonth.month + 1, 1);
+  switch (period) {
+    case _BudgetPeriod.weekly:
+      final now = DateTime.now();
+      final baseDate = (now.year == selectedMonth.year && now.month == selectedMonth.month)
+          ? now
+          : DateTime(selectedMonth.year, selectedMonth.month, 15);
+      final weekStart = baseDate.subtract(Duration(days: baseDate.weekday - 1));
+      final start = DateTime(weekStart.year, weekStart.month, weekStart.day);
+      final end = start.add(const Duration(days: 7));
 
-  await for (final txs in db.watchTransactionsByRange(monthStart, monthEnd)) {
-    final expenses = txs.where((t) => t.type == 'expense').toList();
+      await for (final txs in db.watchTransactionsByRange(start, end)) {
+        final expenses = txs.where((t) => t.type == 'expense');
+        final days = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        for (final tx in expenses) {
+          final idx = (tx.date.weekday - 1).clamp(0, 6);
+          days[idx] += tx.amount;
+        }
+        yield PeriodExpensesData(
+          chartTitle: 'Gastos por Día (Esta Semana)',
+          labels: const ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+          values: days,
+        );
+      }
+      break;
 
-    // Dividir el mes en 4 semanas (semanas del 1 al 7, 8 al 14, 15 al 21, 22+)
-    final weeks = [0.0, 0.0, 0.0, 0.0];
-    for (final tx in expenses) {
-      final day = tx.date.day;
-      final weekIdx = ((day - 1) / 7).floor().clamp(0, 3);
-      weeks[weekIdx] += tx.amount;
-    }
-    yield weeks;
+    case _BudgetPeriod.monthly:
+      final monthStart = DateTime(selectedMonth.year, selectedMonth.month, 1);
+      final monthEnd = DateTime(selectedMonth.year, selectedMonth.month + 1, 1);
+
+      await for (final txs in db.watchTransactionsByRange(monthStart, monthEnd)) {
+        final expenses = txs.where((t) => t.type == 'expense');
+        final weeks = [0.0, 0.0, 0.0, 0.0];
+        for (final tx in expenses) {
+          final day = tx.date.day;
+          final weekIdx = ((day - 1) / 7).floor().clamp(0, 3);
+          weeks[weekIdx] += tx.amount;
+        }
+        yield PeriodExpensesData(
+          chartTitle: 'Gastos por Semana (Mes)',
+          labels: const ['S1', 'S2', 'S3', 'S4'],
+          values: weeks,
+        );
+      }
+      break;
+
+    case _BudgetPeriod.yearly:
+      final yearStart = DateTime(selectedMonth.year, 1, 1);
+      final yearEnd = DateTime(selectedMonth.year + 1, 1, 1);
+
+      await for (final txs in db.watchTransactionsByRange(yearStart, yearEnd)) {
+        final expenses = txs.where((t) => t.type == 'expense');
+        final months = List<double>.filled(12, 0.0);
+        for (final tx in expenses) {
+          final mIdx = (tx.date.month - 1).clamp(0, 11);
+          months[mIdx] += tx.amount;
+        }
+        yield PeriodExpensesData(
+          chartTitle: 'Gastos por Mes (Año ${selectedMonth.year})',
+          labels: const [
+            'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+            'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+          ],
+          values: months,
+        );
+      }
+      break;
   }
 });
 
@@ -468,6 +560,23 @@ class _BudgetCategories extends ConsumerWidget {
                                   ),
                                 ],
                               ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline,
+                                    size: 18, color: AppColors.error),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                tooltip: 'Eliminar presupuesto',
+                                onPressed: () async {
+                                  final confirmed = await _confirmDelete(
+                                      context,
+                                      '¿Eliminar presupuesto de ${d.category.name}?');
+                                  if (confirmed) {
+                                    final db = ref.read(databaseProvider);
+                                    await db.deleteBudget(d.budget.id);
+                                  }
+                                },
+                              ),
                             ],
                           ),
                           const SizedBox(height: 10),
@@ -559,7 +668,7 @@ class _SpendingAnalysis extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final budgetDataAsync = ref.watch(_budgetDataProvider);
-    final weeklyAsync = ref.watch(_weeklyExpensesProvider);
+    final periodDataAsync = ref.watch(_periodExpensesProvider);
     final selectedMonth = ref.watch(_selectedMonthProvider);
     final monthFmt = DateFormat('MMMM', 'es');
 
@@ -645,7 +754,7 @@ class _SpendingAnalysis extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 16),
-        // Weekly bar chart — datos reales
+        // Period Bar Chart — datos reales dinámicos (Semanal/Mensual/Anual)
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -654,31 +763,33 @@ class _SpendingAnalysis extends ConsumerWidget {
             border: Border.all(
                 color: AppColors.outlineVariant.withOpacity(0.5)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Gastos por Semana',
-                style: TextStyle(
-                  fontFamily: 'IBM Plex Sans',
-                  fontSize: 17,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.onSurface,
-                ),
-              ),
-              const SizedBox(height: 20),
-              weeklyAsync.when(
-                data: (weeks) {
-                  final maxY = weeks.reduce((a, b) => a > b ? a : b);
-                  final chartMax = maxY > 0 ? (maxY * 1.3).ceilToDouble() : 100.0;
-                  final hasData = weeks.any((w) => w > 0);
+          child: periodDataAsync.when(
+            data: (pData) {
+              final values = pData.values;
+              final labels = pData.labels;
+              final maxY = values.fold<double>(0.0, (a, b) => a > b ? a : b);
+              final chartMax = maxY > 0 ? (maxY * 1.3).ceilToDouble() : 100.0;
+              final hasData = values.any((w) => w > 0);
 
-                  if (!hasData) {
-                    return const SizedBox(
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    pData.chartTitle,
+                    style: const TextStyle(
+                      fontFamily: 'IBM Plex Sans',
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  if (!hasData)
+                    const SizedBox(
                       height: 100,
                       child: Center(
                         child: Text(
-                          'Sin gastos este mes',
+                          'Sin gastos en este periodo',
                           style: TextStyle(
                             fontFamily: 'IBM Plex Sans',
                             fontSize: 13,
@@ -686,79 +797,81 @@ class _SpendingAnalysis extends ConsumerWidget {
                           ),
                         ),
                       ),
-                    );
-                  }
-
-                  return SizedBox(
-                    height: 160,
-                    child: BarChart(
-                      BarChartData(
-                        backgroundColor: Colors.transparent,
-                        gridData: FlGridData(
-                          show: true,
-                          drawVerticalLine: false,
-                          horizontalInterval: chartMax / 4,
-                          getDrawingHorizontalLine: (v) => FlLine(
-                            color: AppColors.outlineVariant.withOpacity(0.2),
-                            strokeWidth: 1,
-                          ),
-                        ),
-                        borderData: FlBorderData(show: false),
-                        titlesData: FlTitlesData(
-                          leftTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
-                          topTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              getTitlesWidget: (v, _) {
-                                const labels = ['S1', 'S2', 'S3', 'S4'];
-                                return Text(
-                                  labels[v.toInt()],
-                                  style: const TextStyle(
-                                    fontFamily: 'IBM Plex Sans',
-                                    fontSize: 11,
-                                    color: AppColors.onSurfaceVariant,
-                                  ),
-                                );
-                              },
+                    )
+                  else
+                    SizedBox(
+                      height: 160,
+                      child: BarChart(
+                        BarChartData(
+                          backgroundColor: Colors.transparent,
+                          gridData: FlGridData(
+                            show: true,
+                            drawVerticalLine: false,
+                            horizontalInterval: chartMax / 4,
+                            getDrawingHorizontalLine: (v) => FlLine(
+                              color: AppColors.outlineVariant.withOpacity(0.2),
+                              strokeWidth: 1,
                             ),
                           ),
-                        ),
-                        barGroups: weeks.asMap().entries.map((e) {
-                          final isLast = e.key == weeks.length - 1;
-                          return BarChartGroupData(
-                            x: e.key,
-                            barRods: [
-                              BarChartRodData(
-                                toY: e.value,
-                                color: isLast
-                                    ? AppColors.tertiary
-                                    : AppColors.secondary.withOpacity(0.6),
-                                width: 24,
-                                borderRadius: BorderRadius.circular(6),
+                          borderData: FlBorderData(show: false),
+                          titlesData: FlTitlesData(
+                            leftTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            rightTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            topTitles: const AxisTitles(
+                                sideTitles: SideTitles(showTitles: false)),
+                            bottomTitles: AxisTitles(
+                              sideTitles: SideTitles(
+                                showTitles: true,
+                                getTitlesWidget: (v, _) {
+                                  final idx = v.toInt();
+                                  if (idx < 0 || idx >= labels.length) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Text(
+                                    labels[idx],
+                                    style: const TextStyle(
+                                      fontFamily: 'IBM Plex Sans',
+                                      fontSize: 10,
+                                      color: AppColors.onSurfaceVariant,
+                                    ),
+                                  );
+                                },
                               ),
-                            ],
-                          );
-                        }).toList(),
-                        maxY: chartMax,
+                            ),
+                          ),
+                          barGroups: values.asMap().entries.map((e) {
+                            final isLast = e.key == values.length - 1;
+                            return BarChartGroupData(
+                              x: e.key,
+                              barRods: [
+                                BarChartRodData(
+                                  toY: e.value,
+                                  color: isLast
+                                      ? AppColors.tertiary
+                                      : AppColors.secondary.withOpacity(0.6),
+                                  width: labels.length > 8 ? 12 : 20,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                          maxY: chartMax,
+                        ),
                       ),
                     ),
-                  );
-                },
-                loading: () => const SizedBox(
-                  height: 100,
-                  child: Center(
-                    child: CircularProgressIndicator(
-                        color: AppColors.secondary, strokeWidth: 2),
-                  ),
-                ),
-                error: (e, _) => Text('Error: $e'),
+                ],
+              );
+            },
+            loading: () => const SizedBox(
+              height: 140,
+              child: Center(
+                child: CircularProgressIndicator(
+                    color: AppColors.secondary, strokeWidth: 2),
               ),
-            ],
+            ),
+            error: (e, _) => Text('Error: $e'),
           ),
         ),
       ],
@@ -856,16 +969,19 @@ Future<bool> _confirmDelete(BuildContext context, String message) async {
 void _showAddBudgetSheet(BuildContext context, WidgetRef ref) {
   showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: AppColors.surfaceContainerLow,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (ctx) => _AddBudgetSheet(),
+    builder: (ctx) => const _AddBudgetSheet(),
   );
 }
 
 class _AddBudgetSheet extends ConsumerStatefulWidget {
+  const _AddBudgetSheet();
+
   @override
   ConsumerState<_AddBudgetSheet> createState() => _AddBudgetSheetState();
 }
@@ -883,18 +999,21 @@ class _AddBudgetSheetState extends ConsumerState<_AddBudgetSheet> {
   @override
   Widget build(BuildContext context) {
     final catsAsync = ref.watch(categoriesProvider);
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     return Padding(
       padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(context).bottom,
+        bottom: bottomInset + bottomPadding + 32,
         left: 20,
         right: 20,
-        top: 20,
+        top: 24,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           const Text(
             'Nuevo Presupuesto',
             style: TextStyle(
@@ -956,6 +1075,7 @@ class _AddBudgetSheetState extends ConsumerState<_AddBudgetSheet> {
           const SizedBox(height: 24),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
