@@ -71,7 +71,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -80,8 +80,13 @@ class AppDatabase extends _$AppDatabase {
           await _seedCategories();
         },
         onUpgrade: (m, from, to) async {
-          // v1 → v2: no structural changes needed (deadline already existed)
-          // Future migrations go here
+          if (from < 3) {
+            // Wipe legacy seed data from previous versions
+            await customStatement('DELETE FROM transactions;');
+            await customStatement('DELETE FROM budgets;');
+            await customStatement('DELETE FROM savings_goals;');
+            await customStatement('DELETE FROM debts;');
+          }
         },
       );
 

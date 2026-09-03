@@ -97,8 +97,12 @@ class _NewTransactionScreenState extends ConsumerState<NewTransactionScreen> {
     final type = ref.read(_txTypeProvider);
     final note = ref.read(_noteProvider);
 
-    // Find category id (match by name)
-    final catName = _kCategories[selectedIdx].name;
+    final displayCategories = type == 'income'
+        ? _kCategories.where((c) => c.isIncome).toList()
+        : _kCategories.where((c) => !c.isIncome).toList();
+
+    final safeIdx = selectedIdx.clamp(0, displayCategories.length - 1);
+    final catName = displayCategories[safeIdx].name;
     final cat = cats.firstWhere(
       (c) => c.name == catName,
       orElse: () => cats.first,
@@ -224,12 +228,18 @@ class _TypeToggle extends ConsumerWidget {
             Expanded(child: _ToggleButton(
               label: 'Gasto',
               isSelected: type == 'expense',
-              onTap: () => ref.read(_txTypeProvider.notifier).state = 'expense',
+              onTap: () {
+                ref.read(_txTypeProvider.notifier).state = 'expense';
+                ref.read(_selectedCategoryIndexProvider.notifier).state = 0;
+              },
             )),
             Expanded(child: _ToggleButton(
               label: 'Ingreso',
               isSelected: type == 'income',
-              onTap: () => ref.read(_txTypeProvider.notifier).state = 'income',
+              onTap: () {
+                ref.read(_txTypeProvider.notifier).state = 'income';
+                ref.read(_selectedCategoryIndexProvider.notifier).state = 0;
+              },
             )),
           ],
         ),

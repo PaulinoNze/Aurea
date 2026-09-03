@@ -421,6 +421,7 @@ class _DonutChartCard extends ConsumerWidget {
         border: Border.all(color: AppColors.onSurface.withOpacity(0.05)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -452,44 +453,136 @@ class _DonutChartCard extends ConsumerWidget {
               }
               final total = totalExpensesAsync.value ??
                   items.fold<double>(0.0, (s, i) => s + i.amount);
+
               return Column(
                 children: [
-                  Center(
-                    child: _DonutCalloutGraphic(
-                        items: items, totalExpenses: total),
-                  ),
-                  const SizedBox(height: 16),
-                  Center(
-                    child: Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 16,
-                      runSpacing: 8,
-                      children: items
-                          .map((s) => Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 10,
-                                    height: 10,
-                                    decoration: BoxDecoration(
+                  // Clean Center Donut Graphic
+                  SizedBox(
+                    height: 200,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        PieChart(
+                          PieChartData(
+                            sectionsSpace: 3,
+                            centerSpaceRadius: 58,
+                            sections: items
+                                .map((s) => PieChartSectionData(
+                                      value: s.percentage * 100,
                                       color: s.color,
-                                      shape: BoxShape.circle,
-                                    ),
+                                      radius: 26,
+                                      showTitle: false,
+                                    ))
+                                .toList(),
+                          ),
+                        ),
+                        Container(
+                          width: 104,
+                          height: 104,
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceContainerHigh,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 10,
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                'TOTAL GASTOS',
+                                style: TextStyle(
+                                  fontFamily: 'IBM Plex Sans',
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.8,
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '\$${total.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Detailed Category breakdown list
+                  Column(
+                    children: items.map((item) {
+                      final pctInt = (item.percentage * 100).toInt();
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: item.color.withOpacity(0.18),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                IconData(item.iconCode,
+                                    fontFamily: 'MaterialIcons'),
+                                color: item.color,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        item.name,
+                                        style: const TextStyle(
+                                          fontFamily: 'IBM Plex Sans',
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppColors.onSurface,
+                                        ),
+                                      ),
+                                      Text(
+                                        '\$${item.amount.toStringAsFixed(0)} ($pctInt%)',
+                                        style: const TextStyle(
+                                          fontFamily: 'Inter',
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.onSurface,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    '${s.name} (${(s.percentage * 100).toInt()}%)',
-                                    style: const TextStyle(
-                                      fontFamily: 'IBM Plex Sans',
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppColors.onSurface,
-                                    ),
+                                  const SizedBox(height: 6),
+                                  LinearProgressBar(
+                                    progress: item.percentage,
+                                    color: item.color,
+                                    height: 4,
                                   ),
                                 ],
-                              ))
-                          .toList(),
-                    ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ],
               );
@@ -541,202 +634,6 @@ class _EmptyChartState extends StatelessWidget {
       ),
     );
   }
-}
-
-class _DonutCalloutGraphic extends StatelessWidget {
-  final List<CategoryExpense> items;
-  final double totalExpenses;
-
-  const _DonutCalloutGraphic({
-    required this.items,
-    required this.totalExpenses,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const double width = 300;
-    const double height = 260;
-    const double cx = width / 2;
-    const double cy = height / 2;
-    const double outerRadius = 70.0;
-
-    // Compute midAngles for items
-    double currentAngle = -1.5707963267948966; // -90° (12 o'clock)
-    final angles = <double>[];
-    for (final item in items) {
-      final sweep = item.percentage * 6.283185307179586;
-      final mid = currentAngle + sweep / 2;
-      angles.add(mid);
-      currentAngle += sweep;
-    }
-
-    return SizedBox(
-      width: width,
-      height: height,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Donut PieChart
-          PieChart(
-            PieChartData(
-              sectionsSpace: 2,
-              centerSpaceRadius: 48,
-              sections: items
-                  .map((s) => PieChartSectionData(
-                        value: s.percentage * 100,
-                        color: s.color,
-                        radius: 28,
-                        showTitle: false,
-                      ))
-                  .toList(),
-            ),
-          ),
-
-          // CustomPainter for callout lines
-          CustomPaint(
-            size: const Size(width, height),
-            painter: _DonutCalloutLinesPainter(
-              items: items,
-              angles: angles,
-              cx: cx,
-              cy: cy,
-              startRadius: outerRadius,
-              endRadius: 96.0,
-            ),
-          ),
-
-          // Category Icon Badges at ends of callout lines
-          for (int i = 0; i < items.length; i++) ...[
-            Builder(builder: (context) {
-              final item = items[i];
-              final angle = angles[i];
-              const double iconRadius = 116.0;
-              final double iconX = cx + cos(angle) * iconRadius;
-              final double iconY = cy + sin(angle) * iconRadius;
-
-              return Positioned(
-                left: iconX - 14,
-                top: iconY - 14,
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerHigh,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: item.color,
-                      width: 1.5,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: item.color.withOpacity(0.25),
-                        blurRadius: 6,
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    IconData(item.iconCode, fontFamily: 'MaterialIcons'),
-                    color: item.color,
-                    size: 15,
-                  ),
-                ),
-              );
-            }),
-          ],
-
-          // Donut Center Total Text
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainer,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.4),
-                  blurRadius: 8,
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'Total Gastos',
-                  style: TextStyle(
-                    fontFamily: 'IBM Plex Sans',
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '\$${totalExpenses.toStringAsFixed(0)}',
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.onSurface,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DonutCalloutLinesPainter extends CustomPainter {
-  final List<CategoryExpense> items;
-  final List<double> angles;
-  final double cx;
-  final double cy;
-  final double startRadius;
-  final double endRadius;
-
-  _DonutCalloutLinesPainter({
-    required this.items,
-    required this.angles,
-    required this.cx,
-    required this.cy,
-    required this.startRadius,
-    required this.endRadius,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(cx, cy);
-
-    for (int i = 0; i < items.length; i++) {
-      final item = items[i];
-      final angle = angles[i];
-
-      final pStart =
-          center + Offset(cos(angle) * startRadius, sin(angle) * startRadius);
-      final pEnd =
-          center + Offset(cos(angle) * endRadius, sin(angle) * endRadius);
-
-      final linePaint = Paint()
-        ..color = item.color.withOpacity(0.8)
-        ..strokeWidth = 1.5
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
-
-      canvas.drawLine(pStart, pEnd, linePaint);
-
-      // Dot at slice edge
-      final dotPaint = Paint()
-        ..color = item.color
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(pStart, 2.0, dotPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DonutCalloutLinesPainter oldDelegate) => true;
 }
 
 // ---------------------------------------------------------------------------
