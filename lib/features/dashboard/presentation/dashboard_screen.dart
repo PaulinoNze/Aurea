@@ -377,26 +377,363 @@ class _ChartsAndActivity extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final width = MediaQuery.sizeOf(context).width;
-    final isWide = width >= 800;
-
-    if (isWide) {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Expanded(flex: 2, child: _DonutChartCard()),
-          const SizedBox(width: 16),
-          Expanded(flex: 1, child: _RecentActivityCard()),
-        ],
-      );
-    }
-
     return const Column(
       children: [
+        _NetWorthTrendCard(),
+        SizedBox(height: 16),
         _DonutChartCard(),
         SizedBox(height: 16),
         _RecentActivityCard(),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Net Worth Trend Line Chart — with labels, grid, and summary header
+// ---------------------------------------------------------------------------
+
+class _NetWorthTrendCard extends ConsumerWidget {
+  const _NetWorthTrendCard();
+
+  /// Formats a monetary value as compact: $0, $500, $1.2k, $15k, $1.2M
+  String _fmtCompact(double v) {
+    final abs = v.abs();
+    final sign = v < 0 ? '-' : '';
+    if (abs >= 1000000) return '$sign\$${(abs / 1000000).toStringAsFixed(1)}M';
+    if (abs >= 1000) return '$sign\$${(abs / 1000).toStringAsFixed(1)}k';
+    return '$sign\$${abs.toStringAsFixed(0)}';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final txsAsync = ref.watch(allTransactionsProvider);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.onSurface.withValues(alpha: 0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title row
+          const Text(
+            'Tendencia del Patrimonio',
+            style: TextStyle(
+              fontFamily: 'IBM Plex Sans',
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: AppColors.onSurface,
+            ),
+          ),
+          const SizedBox(height: 16),
+          txsAsync.when(
+            data: (txs) {
+              if (txs.isEmpty) {
+                return const _EmptyChartState(
+                  message: 'Sin movimientos para generar tendencia',
+                  icon: Icons.show_chart,
+                );
+              }
+
+              // Build cumulative net worth chronologically
+              final sorted = List<Transaction>.from(txs)
+                ..sort((a, b) => a.date.compareTo(b.date));
+
+              // Aggregate by day to avoid too many points
+              final dayMap = <String, ({double netWorth, DateTime date})>{};
+              double running = 0.0;
+              for (final tx in sorted) {
+                if (tx.type == 'income') {
+                  running += tx.amount;
+                } else {
+                  running -= tx.amount;
+                }
+                final key = DateFormat('yyyy-MM-dd').format(tx.date);
+                dayMap[key] = (netWorth: running, date: tx.date);
+              }
+
+              final dayEntries = dayMap.values.toList()
+                ..sort((a, b) => a.date.compareTo(b.date));
+
+              // Use up to 20 points for clarity
+              final displayEntries = dayEntries.length > 20
+                  ? dayEntries.sublist(dayEntries.length - 20)
+                  : dayEntries;
+
+              final spots = displayEntries.asMap().entries
+                  .map((e) => FlSpot(e.key.toDouble(), e.value.netWorth))
+                  .toList();
+
+              final firstVal = displayEntries.first.netWorth;
+              final lastVal = displayEntries.last.netWorth;
+              final variation = firstVal != 0
+                  ? ((lastVal - firstVal) / firstVal.abs() * 100)
+                  : 0.0;
+              final isPositive = variation >= 0;
+
+              final minY = spots.map((s) => s.y).reduce(min);
+              final maxY = spots.map((s) => s.y).reduce(max);
+              final rawRange = maxY == minY ? 1.0 : (maxY - minY);
+              final paddedMin = minY - rawRange * 0.15;
+              final paddedMax = maxY + rawRange * 0.15;
+
+              // Y-axis step: try to get ~4 lines
+              final yStep = rawRange / 3;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Summary stat row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StatPill(
+                          label: 'Inicio',
+                          value: _fmtCompact(firstVal),
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _StatPill(
+                          label: 'Actual',
+                          value: _fmtCompact(lastVal),
+                          color: lastVal >= 0 ? AppColors.tertiary : AppColors.error,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _StatPill(
+                          label: 'Variación',
+                          value: '${isPositive ? '+' : ''}${variation.toStringAsFixed(1)}%',
+                          color: isPositive ? AppColors.secondary : AppColors.error,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 190,
+                    child: LineChart(
+                      LineChartData(
+                        gridData: FlGridData(
+                          show: true,
+                          drawVerticalLine: false,
+                          horizontalInterval: yStep > 0 ? yStep : 1.0,
+                          getDrawingHorizontalLine: (v) => FlLine(
+                            color: AppColors.onSurface.withValues(alpha: 0.06),
+                            strokeWidth: 1,
+                          ),
+                        ),
+                        titlesData: FlTitlesData(
+                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          // Y-axis — left side, monetary values
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 52,
+                              interval: yStep > 0 ? yStep : 1.0,
+                              getTitlesWidget: (value, meta) {
+                                // Only show min/max and mid ticks
+                                if (value == meta.min || value == meta.max) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 4),
+                                  child: Text(
+                                    _fmtCompact(value),
+                                    style: const TextStyle(
+                                      fontFamily: 'IBM Plex Sans',
+                                      fontSize: 9,
+                                      color: AppColors.onSurfaceVariant,
+                                    ),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          // X-axis — dates
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 22,
+                              interval: (displayEntries.length / 4).ceilToDouble().clamp(1, double.infinity),
+                              getTitlesWidget: (value, meta) {
+                                final idx = value.toInt();
+                                if (idx < 0 || idx >= displayEntries.length) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    DateFormat('d MMM', 'es').format(displayEntries[idx].date),
+                                    style: const TextStyle(
+                                      fontFamily: 'IBM Plex Sans',
+                                      fontSize: 9,
+                                      color: AppColors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        borderData: FlBorderData(show: false),
+                        minX: 0,
+                        maxX: (spots.length - 1).toDouble(),
+                        minY: paddedMin,
+                        maxY: paddedMax,
+                        lineTouchData: LineTouchData(
+                          enabled: true,
+                          touchTooltipData: LineTouchTooltipData(
+                            getTooltipItems: (touchedSpots) {
+                              return touchedSpots.map((spot) {
+                                final idx = spot.x.toInt().clamp(0, displayEntries.length - 1);
+                                final entry = displayEntries[idx];
+                                final dateStr = DateFormat("d MMM yyyy", 'es').format(entry.date);
+                                final isPos = spot.y >= 0;
+                                return LineTooltipItem(
+                                  '${_fmtCompact(spot.y)}\n',
+                                  TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                    color: isPos ? AppColors.tertiary : AppColors.error,
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: dateStr,
+                                      style: const TextStyle(
+                                        fontFamily: 'IBM Plex Sans',
+                                        fontWeight: FontWeight.w400,
+                                        fontSize: 10,
+                                        color: AppColors.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }).toList();
+                            },
+                          ),
+                          getTouchedSpotIndicator: (barData, indicators) {
+                            return indicators.map((idx) {
+                              return TouchedSpotIndicatorData(
+                                FlLine(
+                                  color: AppColors.secondary.withValues(alpha: 0.3),
+                                  strokeWidth: 1.5,
+                                  dashArray: [4, 4],
+                                ),
+                                FlDotData(
+                                  getDotPainter: (spot, _, __, ___) =>
+                                      FlDotCirclePainter(
+                                    radius: 5,
+                                    color: AppColors.secondary,
+                                    strokeColor: AppColors.surfaceContainer,
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              );
+                            }).toList();
+                          },
+                        ),
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: spots,
+                            isCurved: true,
+                            curveSmoothness: 0.35,
+                            color: lastVal >= 0 ? AppColors.secondary : AppColors.error,
+                            barWidth: 2.5,
+                            isStrokeCapRound: true,
+                            dotData: const FlDotData(show: false),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  (lastVal >= 0 ? AppColors.secondary : AppColors.error)
+                                      .withValues(alpha: 0.18),
+                                  (lastVal >= 0 ? AppColors.secondary : AppColors.error)
+                                      .withValues(alpha: 0.0),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+            loading: () => const SizedBox(
+              height: 220,
+              child: Center(
+                child: CircularProgressIndicator(
+                    color: AppColors.secondary, strokeWidth: 2),
+              ),
+            ),
+            error: (e, _) => Text('Error: $e',
+                style: const TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small stat pill used inside the trend card
+class _StatPill extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _StatPill({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: const TextStyle(
+              fontFamily: 'IBM Plex Sans',
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.6,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

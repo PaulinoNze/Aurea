@@ -5,23 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/database/database_provider.dart';
+import '../../../core/providers/app_providers.dart';
 
 // ---------------------------------------------------------------------------
 // New Transaction Screen — Numpad + Categorías + Nota
-// Fiel al diseño HTML: nuevo_registro/code.html
 // ---------------------------------------------------------------------------
-
-// Categorías con sus iconos
-const _kCategories = [
-  (name: 'Comida', icon: Icons.restaurant, isIncome: false),
-  (name: 'Transporte', icon: Icons.directions_car, isIncome: false),
-  (name: 'Compras', icon: Icons.shopping_bag_outlined, isIncome: false),
-  (name: 'Servicios', icon: Icons.electrical_services, isIncome: false),
-  (name: 'Vivienda', icon: Icons.home_outlined, isIncome: false),
-  (name: 'Salud', icon: Icons.favorite_outline, isIncome: false),
-  (name: 'Ocio', icon: Icons.theater_comedy_outlined, isIncome: false),
-  (name: 'Nómina', icon: Icons.payments_outlined, isIncome: true),
-];
 
 // State
 final _txTypeProvider = StateProvider<String>((ref) => 'expense'); // 'expense' | 'income'
@@ -92,21 +80,17 @@ class _NewTransactionScreenState extends ConsumerState<NewTransactionScreen> {
     setState(() => _isSaving = true);
 
     final db = ref.read(databaseProvider);
-    final cats = await db.select(db.categories).get();
+    final cats = await db.getAllCategories();
     final selectedIdx = ref.read(_selectedCategoryIndexProvider);
     final type = ref.read(_txTypeProvider);
     final note = ref.read(_noteProvider);
 
     final displayCategories = type == 'income'
-        ? _kCategories.where((c) => c.isIncome).toList()
-        : _kCategories.where((c) => !c.isIncome).toList();
+        ? cats.where((c) => c.name == 'Nómina' || c.name == 'Otros').toList()
+        : cats.where((c) => c.name != 'Nómina').toList();
 
-    final safeIdx = selectedIdx.clamp(0, displayCategories.length - 1);
-    final catName = displayCategories[safeIdx].name;
-    final cat = cats.firstWhere(
-      (c) => c.name == catName,
-      orElse: () => cats.first,
-    );
+    final safeIdx = selectedIdx.clamp(0, displayCategories.isNotEmpty ? displayCategories.length - 1 : 0);
+    final cat = displayCategories.isNotEmpty ? displayCategories[safeIdx] : cats.first;
 
     await db.insertTransaction(
       TransactionsCompanion.insert(
@@ -341,68 +325,78 @@ class _CategorySelector extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedIdx = ref.watch(_selectedCategoryIndexProvider);
     final type = ref.watch(_txTypeProvider);
+    final catsAsync = ref.watch(categoriesProvider);
 
-    final displayCategories = type == 'income'
-        ? _kCategories.where((c) => c.isIncome).toList()
-        : _kCategories.where((c) => !c.isIncome).toList();
+    return catsAsync.when(
+      data: (cats) {
+        final displayCategories = type == 'income'
+            ? cats.where((c) => c.name == 'Nómina' || c.name == 'Otros').toList()
+            : cats.where((c) => c.name != 'Nómina').toList();
 
-    return SizedBox(
-      height: 88,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        separatorBuilder: (context, index) => const SizedBox(width: 16),
-        itemCount: displayCategories.length,
-        itemBuilder: (context, i) {
-          final cat = displayCategories[i];
-          final isActive = selectedIdx == i;
-          return GestureDetector(
-            onTap: () {
-              ref.read(_selectedCategoryIndexProvider.notifier).state = i;
-              HapticFeedback.selectionClick();
+        if (displayCategories.isEmpty) return const SizedBox(height: 88);
+
+        return SizedBox(
+          height: 88,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            separatorBuilder: (context, index) => const SizedBox(width: 16),
+            itemCount: displayCategories.length,
+            itemBuilder: (context, i) {
+              final cat = displayCategories[i];
+              final isActive = selectedIdx == i;
+              return GestureDetector(
+                onTap: () {
+                  ref.read(_selectedCategoryIndexProvider.notifier).state = i;
+                  HapticFeedback.selectionClick();
+                },
+                child: Column(
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isActive
+                            ? AppColors.secondaryContainer
+                            : AppColors.surfaceContainerHigh,
+                        border: isActive
+                            ? Border.all(
+                                color: AppColors.secondary, width: 1.5)
+                            : Border.all(
+                                color: AppColors.outlineVariant.withOpacity(0.2)),
+                      ),
+                      child: Icon(
+                        // ignore: non_const_argument_for_const_parameter
+                        IconData(cat.iconCode, fontFamily: 'MaterialIcons'),
+                        color: isActive
+                            ? AppColors.onSecondaryContainer
+                            : AppColors.onSurfaceVariant,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      cat.name,
+                      style: TextStyle(
+                        fontFamily: 'IBM Plex Sans',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: isActive
+                            ? AppColors.onSurface
+                            : AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              );
             },
-            child: Column(
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isActive
-                        ? AppColors.secondaryContainer
-                        : AppColors.surfaceContainerHigh,
-                    border: isActive
-                        ? Border.all(
-                            color: AppColors.secondary, width: 1.5)
-                        : Border.all(
-                            color: AppColors.outlineVariant.withOpacity(0.2)),
-                  ),
-                  child: Icon(
-                    cat.icon,
-                    color: isActive
-                        ? AppColors.onSecondaryContainer
-                        : AppColors.onSurfaceVariant,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  cat.name,
-                  style: TextStyle(
-                    fontFamily: 'IBM Plex Sans',
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: isActive
-                        ? AppColors.onSurface
-                        : AppColors.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+          ),
+        );
+      },
+      loading: () => const SizedBox(height: 88),
+      error: (_, _) => const SizedBox(height: 88),
     );
   }
 }

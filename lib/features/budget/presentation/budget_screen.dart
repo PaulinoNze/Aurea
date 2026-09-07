@@ -465,10 +465,11 @@ class _BudgetCategories extends ConsumerWidget {
               }
               return Column(
                 children: items.map((d) {
-                  final isOverBudget = d.spent >= d.budget.amount * 0.9;
-                  final color = isOverBudget
+                  final statusColor = d.progress >= 1.0
                       ? AppColors.error
-                      : _categoryColor(d.category.colorHex);
+                      : d.progress >= 0.8
+                          ? AppColors.tertiary
+                          : AppColors.secondary;
 
                   return Dismissible(
                     key: ValueKey('budget-${d.budget.id}'),
@@ -500,12 +501,12 @@ class _BudgetCategories extends ConsumerWidget {
                                 height: 40,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: color.withOpacity(0.15),
+                                  color: statusColor.withOpacity(0.15),
                                 ),
                                 child: Icon(
                                   IconData(d.category.iconCode,
                                       fontFamily: 'MaterialIcons'),
-                                  color: color,
+                                  color: statusColor,
                                   size: 18,
                                 ),
                               ),
@@ -529,9 +530,7 @@ class _BudgetCategories extends ConsumerWidget {
                                       style: TextStyle(
                                         fontFamily: 'Inter',
                                         fontSize: 11,
-                                        color: isOverBudget
-                                            ? AppColors.error
-                                            : AppColors.onSurfaceVariant,
+                                        color: statusColor,
                                       ),
                                     ),
                                   ],
@@ -582,7 +581,7 @@ class _BudgetCategories extends ConsumerWidget {
                           const SizedBox(height: 10),
                           LinearProgressBar(
                             progress: d.progress,
-                            color: color,
+                            color: statusColor,
                             height: 5,
                           ),
                         ],

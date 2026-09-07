@@ -156,12 +156,7 @@ class _GoalCard extends StatelessWidget {
     String? deadlineStr;
     String? daysStr;
     if (goal.deadline != null) {
-      final months = [
-        'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-        'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
-      ];
-      deadlineStr =
-          '${months[goal.deadline!.month - 1]} ${goal.deadline!.year}';
+      deadlineStr = DateFormat("d 'de' MMMM, yyyy", 'es').format(goal.deadline!);
       if (gp.daysRemaining != null) {
         daysStr = 'Faltan ${gp.daysRemaining} días';
       } else if (goal.deadline!.isBefore(DateTime.now())) {
@@ -249,12 +244,12 @@ class _GoalCard extends StatelessWidget {
                   ],
                 ),
                 const Spacer(),
-                // Ahorro neto vs objetivo
+                // Ahorro aportado vs objetivo
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '\$${gp.netSavings.toStringAsFixed(0)}',
+                      '\$${gp.currentContributed.toStringAsFixed(0)}',
                       style: const TextStyle(
                         fontFamily: 'Inter',
                         fontSize: 14,
@@ -688,6 +683,7 @@ class _DebtRow extends StatelessWidget {
                     : AppColors.surfaceVariant,
               ),
               child: Icon(
+                // ignore: non_const_argument_for_const_parameter
                 IconData(debt.iconCode, fontFamily: 'MaterialIcons'),
                 color:
                     isTarget ? AppColors.error : AppColors.onSurfaceVariant,
@@ -816,7 +812,7 @@ void _showAddGoalSheet(BuildContext context, WidgetRef ref) {
 }
 
 class _AddGoalSheet extends ConsumerStatefulWidget {
-  const _AddGoalSheet({super.key});
+  const _AddGoalSheet();
 
   @override
   ConsumerState<_AddGoalSheet> createState() => _AddGoalSheetState();
@@ -1108,7 +1104,7 @@ void _showAddDebtSheet(BuildContext context, WidgetRef ref) {
 }
 
 class _AddDebtSheet extends ConsumerStatefulWidget {
-  const _AddDebtSheet({super.key});
+  const _AddDebtSheet();
 
   @override
   ConsumerState<_AddDebtSheet> createState() => _AddDebtSheetState();

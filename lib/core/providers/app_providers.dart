@@ -9,17 +9,33 @@ import '../database/database_provider.dart';
 
 class GoalProgress {
   final SavingsGoal goal;
-  final double netSavings;            // ahorro neto total (ingresos - gastos)
-  final double progress;             // 0.0–1.0
+  final double currentContributed; // suma de aportes en goal_contributions
+  final double progress; // 0.0–1.0
   final double? monthlySavingsNeeded; // null si no hay deadline
-  final int? daysRemaining;           // null si no hay deadline
+  final int? daysRemaining; // null si no hay deadline
+  final bool isCompleted;
 
   const GoalProgress({
     required this.goal,
-    required this.netSavings,
+    required this.currentContributed,
     required this.progress,
     this.monthlySavingsNeeded,
     this.daysRemaining,
+    required this.isCompleted,
+  });
+}
+
+class DebtProgress {
+  final Debt debt;
+  final double totalPaid; // suma de pagos en debt_payments
+  final double effectiveRemaining; // debt.remainingAmount - totalPaid
+  final bool isPaidOff;
+
+  const DebtProgress({
+    required this.debt,
+    required this.totalPaid,
+    required this.effectiveRemaining,
+    required this.isPaidOff,
   });
 }
 
@@ -132,10 +148,22 @@ final goalsProvider = StreamProvider<List<SavingsGoal>>((ref) {
   return db.watchAllGoals();
 });
 
+/// Todos los aportes a metas de ahorro
+final goalContributionsProvider = StreamProvider<List<GoalContribution>>((ref) {
+  final db = ref.watch(databaseProvider);
+  return db.watchAllGoalContributions();
+});
+
 /// Todas las deudas (ordenadas por APR desc para método avalancha)
 final debtsProvider = StreamProvider<List<Debt>>((ref) {
   final db = ref.watch(databaseProvider);
   return db.watchAllDebts();
+});
+
+/// Todos los pagos a deudas
+final debtPaymentsProvider = StreamProvider<List<DebtPayment>>((ref) {
+  final db = ref.watch(databaseProvider);
+  return db.watchAllDebtPayments();
 });
 
 // ---------------------------------------------------------------------------
@@ -180,42 +208,117 @@ final categoryExpensesProvider =
 });
 
 // ---------------------------------------------------------------------------
-// Provider derivado — Progreso de metas (Opción B: ahorro neto)
+// Provider derivado — Progreso de metas (basado en aportes reales)
 // ---------------------------------------------------------------------------
 
-final goalsProgressProvider =
-    StreamProvider<List<GoalProgress>>((ref) async* {
-  final db = ref.watch(databaseProvider);
-  await for (final goals in db.watchAllGoals()) {
-    final income = await db.watchTotalIncome().first;
-    final expenses = await db.watchTotalExpenses().first;
-    final netSavings = (income - expenses).clamp(0.0, double.infinity);
-    final now = DateTime.now();
+final goalsProgressProvider = Provider<AsyncValue<List<GoalProgress>>>((ref) {
+  final goalsAsync = ref.watch(goalsProvider);
+  final contribsAsync = ref.watch(goalContributionsProvider);
 
-    yield goals.map((goal) {
-      final progress = goal.targetAmount > 0
-          ? (netSavings / goal.targetAmount).clamp(0.0, 1.0)
-          : 0.0;
+  return goalsAsync.when(
+    data: (goals) {
+      return contribsAsync.when(
+        data: (contributions) {
+          final contribMap = <int, double>{};
+          for (final c in contributions) {
+            contribMap[c.goalId] = (contribMap[c.goalId] ?? 0) + c.amount;
+          }
 
-      double? monthlySavingsNeeded;
-      int? daysRemaining;
+          final now = DateTime.now();
 
-      if (goal.deadline != null && goal.deadline!.isAfter(now)) {
-        daysRemaining = goal.deadline!.difference(now).inDays;
-        final monthsRemaining = daysRemaining / 30.0;
-        final remaining =
-            (goal.targetAmount - netSavings).clamp(0.0, double.infinity);
-        monthlySavingsNeeded =
-            monthsRemaining > 0 ? remaining / monthsRemaining : remaining;
-      }
+          final result = goals.map((goal) {
+            final contributed = contribMap[goal.id] ?? 0.0;
+            final progress = goal.targetAmount > 0
+                ? (contributed / goal.targetAmount).clamp(0.0, 1.0)
+                : 0.0;
+            final isCompleted =
+                contributed >= goal.targetAmount && goal.targetAmount > 0;
 
-      return GoalProgress(
-        goal: goal,
-        netSavings: netSavings,
-        progress: progress,
-        monthlySavingsNeeded: monthlySavingsNeeded,
-        daysRemaining: daysRemaining,
+            double? monthlySavingsNeeded;
+            int? daysRemaining;
+
+            if (goal.deadline != null && goal.deadline!.isAfter(now)) {
+              daysRemaining = goal.deadline!.difference(now).inDays;
+              final monthsRemaining = daysRemaining / 30.0;
+              final remaining =
+                  (goal.targetAmount - contributed).clamp(0.0, double.infinity);
+              monthlySavingsNeeded =
+                  monthsRemaining > 0 ? remaining / monthsRemaining : remaining;
+            }
+
+            return GoalProgress(
+              goal: goal,
+              currentContributed: contributed,
+              progress: progress,
+              monthlySavingsNeeded: monthlySavingsNeeded,
+              daysRemaining: daysRemaining,
+              isCompleted: isCompleted,
+            );
+          }).toList();
+
+          return AsyncValue.data(result);
+        },
+        loading: () => const AsyncValue.loading(),
+        error: (e, st) => AsyncValue.error(e, st),
       );
-    }).toList();
-  }
+    },
+    loading: () => const AsyncValue.loading(),
+    error: (e, st) => AsyncValue.error(e, st),
+  );
+});
+
+/// Metas activas (no completadas)
+final activeGoalsProgressProvider =
+    Provider<AsyncValue<List<GoalProgress>>>((ref) {
+  final progressAsync = ref.watch(goalsProgressProvider);
+  return progressAsync.whenData((all) => all.where((gp) => !gp.isCompleted).toList());
+});
+
+// ---------------------------------------------------------------------------
+// Provider derivado — Progreso de deudas (basado en pagos reales)
+// ---------------------------------------------------------------------------
+
+final debtsProgressProvider = Provider<AsyncValue<List<DebtProgress>>>((ref) {
+  final debtsAsync = ref.watch(debtsProvider);
+  final paymentsAsync = ref.watch(debtPaymentsProvider);
+
+  return debtsAsync.when(
+    data: (debts) {
+      return paymentsAsync.when(
+        data: (payments) {
+          final payMap = <int, double>{};
+          for (final p in payments) {
+            payMap[p.debtId] = (payMap[p.debtId] ?? 0) + p.amount;
+          }
+
+          final result = debts.map((debt) {
+            final totalPaid = payMap[debt.id] ?? 0.0;
+            final effectiveRemaining =
+                (debt.remainingAmount - totalPaid).clamp(0.0, double.infinity);
+            final isPaidOff = effectiveRemaining <= 0;
+
+            return DebtProgress(
+              debt: debt,
+              totalPaid: totalPaid,
+              effectiveRemaining: effectiveRemaining,
+              isPaidOff: isPaidOff,
+            );
+          }).toList();
+
+          return AsyncValue.data(result);
+        },
+        loading: () => const AsyncValue.loading(),
+        error: (e, st) => AsyncValue.error(e, st),
+      );
+    },
+    loading: () => const AsyncValue.loading(),
+    error: (e, st) => AsyncValue.error(e, st),
+  );
+});
+
+/// Deudas activas (con saldo pendiente > 0)
+final activeDebtsProgressProvider =
+    Provider<AsyncValue<List<DebtProgress>>>((ref) {
+  final progressAsync = ref.watch(debtsProgressProvider);
+  return progressAsync.whenData((all) => all.where((dp) => !dp.isPaidOff).toList());
 });

@@ -62,16 +62,33 @@ class Debts extends Table {
   IntColumn get iconCode => integer().withDefault(const Constant(0xe1bc))(); // credit_card
 }
 
+/// Aportes manuales a metas de ahorro (para historial independiente)
+class GoalContributions extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get goalId => integer().references(SavingsGoals, #id)();
+  RealColumn get amount => real()();
+  DateTimeColumn get date => dateTime()();
+}
+
+/// Pagos a deudas (para historial independiente)
+class DebtPayments extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get debtId => integer().references(Debts, #id)();
+  RealColumn get amount => real()();
+  DateTimeColumn get date => dateTime()();
+}
+
 // ---------------------------------------------------------------------------
 // DATABASE
 // ---------------------------------------------------------------------------
 
-@DriftDatabase(tables: [Categories, Transactions, Budgets, SavingsGoals, Debts])
+@DriftDatabase(tables: [Categories, Transactions, Budgets, SavingsGoals, Debts, GoalContributions, DebtPayments])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
+  AppDatabase.forTesting(QueryExecutor e) : super(e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -86,6 +103,10 @@ class AppDatabase extends _$AppDatabase {
             await customStatement('DELETE FROM budgets;');
             await customStatement('DELETE FROM savings_goals;');
             await customStatement('DELETE FROM debts;');
+          }
+          if (from < 4) {
+            await m.createTable(goalContributions);
+            await m.createTable(debtPayments);
           }
         },
       );
@@ -239,7 +260,7 @@ class AppDatabase extends _$AppDatabase {
       (delete(budgets)..where((b) => b.id.equals(id))).go();
 
   // ---------------------------------------------------------------------------
-  // QUERIES — Savings Goals
+  // QUERIES — Savings Goals & Contributions
   // ---------------------------------------------------------------------------
   Stream<List<SavingsGoal>> watchAllGoals() => select(savingsGoals).watch();
 
@@ -249,11 +270,38 @@ class AppDatabase extends _$AppDatabase {
   Future<int> insertGoal(SavingsGoalsCompanion goal) =>
       into(savingsGoals).insert(goal);
 
-  Future<int> deleteGoal(int id) =>
-      (delete(savingsGoals)..where((g) => g.id.equals(id))).go();
+  Future<int> deleteGoal(int id) async {
+    await (delete(goalContributions)..where((c) => c.goalId.equals(id))).go();
+    return (delete(savingsGoals)..where((g) => g.id.equals(id))).go();
+  }
+
+  Stream<List<GoalContribution>> watchContributionsForGoal(int goalId) {
+    return (select(goalContributions)
+          ..where((c) => c.goalId.equals(goalId))
+          ..orderBy([(c) => OrderingTerm.desc(c.date)]))
+        .watch();
+  }
+
+  Stream<double> watchTotalContributedForGoal(int goalId) {
+    final query = selectOnly(goalContributions)
+      ..addColumns([goalContributions.amount.sum()])
+      ..where(goalContributions.goalId.equals(goalId));
+    return query
+        .map((row) => row.read(goalContributions.amount.sum()) ?? 0.0)
+        .watchSingle();
+  }
+
+  Stream<List<GoalContribution>> watchAllGoalContributions() {
+    return (select(goalContributions)
+          ..orderBy([(c) => OrderingTerm.desc(c.date)]))
+        .watch();
+  }
+
+  Future<int> insertGoalContribution(GoalContributionsCompanion entry) =>
+      into(goalContributions).insert(entry);
 
   // ---------------------------------------------------------------------------
-  // QUERIES — Debts
+  // QUERIES — Debts & Debt Payments
   // ---------------------------------------------------------------------------
   Stream<List<Debt>> watchAllDebts() {
     return (select(debts)
@@ -266,8 +314,35 @@ class AppDatabase extends _$AppDatabase {
 
   Future<bool> updateDebt(Debt d) => update(debts).replace(d);
 
-  Future<int> deleteDebt(int id) =>
-      (delete(debts)..where((d) => d.id.equals(id))).go();
+  Future<int> deleteDebt(int id) async {
+    await (delete(debtPayments)..where((p) => p.debtId.equals(id))).go();
+    return (delete(debts)..where((d) => d.id.equals(id))).go();
+  }
+
+  Stream<List<DebtPayment>> watchPaymentsForDebt(int debtId) {
+    return (select(debtPayments)
+          ..where((p) => p.debtId.equals(debtId))
+          ..orderBy([(p) => OrderingTerm.desc(p.date)]))
+        .watch();
+  }
+
+  Stream<double> watchTotalPaidForDebt(int debtId) {
+    final query = selectOnly(debtPayments)
+      ..addColumns([debtPayments.amount.sum()])
+      ..where(debtPayments.debtId.equals(debtId));
+    return query
+        .map((row) => row.read(debtPayments.amount.sum()) ?? 0.0)
+        .watchSingle();
+  }
+
+  Stream<List<DebtPayment>> watchAllDebtPayments() {
+    return (select(debtPayments)
+          ..orderBy([(p) => OrderingTerm.desc(p.date)]))
+        .watch();
+  }
+
+  Future<int> insertDebtPayment(DebtPaymentsCompanion entry) =>
+      into(debtPayments).insert(entry);
 }
 
 // ---------------------------------------------------------------------------

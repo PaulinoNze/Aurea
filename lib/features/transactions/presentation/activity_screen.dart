@@ -1,6 +1,9 @@
+import 'dart:math';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:drift/drift.dart' show Value;
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/shared_widgets.dart';
 import '../../../core/database/app_database.dart';
@@ -34,8 +37,14 @@ class ActivityScreen extends ConsumerWidget {
             child: _SearchBar(),
           ),
           const SizedBox(height: 12),
+          // Active Goals & Debts Allocation (Item #1)
+          const _ActiveGoalsAndDebtsBar(),
+          const SizedBox(height: 12),
           // Filter chips
           const _FilterChips(),
+          const SizedBox(height: 12),
+          // Flow Chart for active filter
+          const _ActivityFlowChartCard(),
           const SizedBox(height: 8),
           // Transaction list
           const Expanded(child: _TransactionList()),
@@ -162,6 +171,522 @@ class _Chip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Flow Chart Card adaptativa por filtro (_Filter)
+// ---------------------------------------------------------------------------
+
+class _ActivityFlowChartCard extends ConsumerWidget {
+  const _ActivityFlowChartCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filter = ref.watch(_filterProvider);
+    final txsAsync = ref.watch(allTransactionsProvider);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainer,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.onSurface.withValues(alpha: 0.05)),
+        ),
+        child: txsAsync.when(
+          data: (txs) {
+            if (txs.isEmpty) {
+              return const SizedBox(
+                height: 90,
+                child: Center(
+                  child: Text(
+                    'Sin movimientos para generar gráfica',
+                    style: TextStyle(
+                      fontFamily: 'IBM Plex Sans',
+                      fontSize: 12,
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            switch (filter) {
+              case _Filter.all:
+                return _buildAllFlowChart(txs);
+              case _Filter.income:
+                return _buildIncomeFlowChart(txs);
+              case _Filter.expense:
+                return _buildExpenseFlowChart(txs);
+            }
+          },
+          loading: () => const SizedBox(
+            height: 120,
+            child: Center(
+              child: CircularProgressIndicator(
+                  color: AppColors.secondary, strokeWidth: 2),
+            ),
+          ),
+          error: (e, _) => Text('Error: $e',
+              style: const TextStyle(color: AppColors.error)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAllFlowChart(List<Transaction> txs) {
+    final dateMap = <String, ({double income, double expense, DateTime date})>{};
+    for (final tx in txs) {
+      final key = DateFormat('yyyy-MM-dd').format(tx.date);
+      final prev = dateMap[key] ?? (income: 0.0, expense: 0.0, date: tx.date);
+      if (tx.type == 'income') {
+        dateMap[key] = (income: prev.income + tx.amount, expense: prev.expense, date: tx.date);
+      } else {
+        dateMap[key] = (income: prev.income, expense: prev.expense + tx.amount, date: tx.date);
+      }
+    }
+
+    final sortedEntries = dateMap.values.toList()..sort((a, b) => a.date.compareTo(b.date));
+    final displayEntries = sortedEntries.length > 7 ? sortedEntries.sublist(sortedEntries.length - 7) : sortedEntries;
+
+    double totalInc = 0;
+    double totalExp = 0;
+    for (final e in displayEntries) {
+      totalInc += e.income;
+      totalExp += e.expense;
+    }
+    final balance = totalInc - totalExp;
+
+    double maxVal = 100;
+    for (final e in displayEntries) {
+      maxVal = max(maxVal, max(e.income, e.expense));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Flujo General de Caja',
+              style: TextStyle(
+                fontFamily: 'IBM Plex Sans',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.onSurface,
+              ),
+            ),
+            Row(
+              children: const [
+                _DotLegend(color: AppColors.tertiary, label: 'Ingresos'),
+                SizedBox(width: 10),
+                _DotLegend(color: AppColors.error, label: 'Gastos'),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Text(
+              'Balance: \$${balance.toStringAsFixed(0)}',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: balance >= 0 ? AppColors.tertiary : AppColors.error,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '(+\$${totalInc.toStringAsFixed(0)} / -\$${totalExp.toStringAsFixed(0)})',
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 11,
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 110,
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: maxVal * 1.15,
+              gridData: const FlGridData(show: false),
+              titlesData: FlTitlesData(
+                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (val, meta) {
+                      final idx = val.toInt();
+                      if (idx >= 0 && idx < displayEntries.length) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            DateFormat('d MMM', 'es').format(displayEntries[idx].date),
+                            style: const TextStyle(
+                              fontFamily: 'IBM Plex Sans',
+                              fontSize: 9,
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                ),
+              ),
+              borderData: FlBorderData(show: false),
+              barTouchData: BarTouchData(
+                enabled: true,
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    final isIncome = rodIndex == 0;
+                    final label = isIncome ? 'Ingreso' : 'Gasto';
+                    return BarTooltipItem(
+                      '$label: \$${rod.toY.toStringAsFixed(0)}',
+                      TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isIncome ? AppColors.tertiary : AppColors.error,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              barGroups: displayEntries.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final data = entry.value;
+                return BarChartGroupData(
+                  x: idx,
+                  barRods: [
+                    BarChartRodData(
+                      toY: data.income,
+                      color: AppColors.tertiary,
+                      width: 8,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    BarChartRodData(
+                      toY: data.expense,
+                      color: AppColors.error,
+                      width: 8,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildIncomeFlowChart(List<Transaction> txs) {
+    final incomeTxs = txs.where((t) => t.type == 'income').toList();
+    if (incomeTxs.isEmpty) {
+      return const SizedBox(
+        height: 90,
+        child: Center(
+          child: Text(
+            'Sin ingresos registrados en este periodo',
+            style: TextStyle(
+                fontFamily: 'IBM Plex Sans',
+                fontSize: 12,
+                color: AppColors.onSurfaceVariant),
+          ),
+        ),
+      );
+    }
+
+    final dateMap = <String, ({double amount, DateTime date})>{};
+    for (final tx in incomeTxs) {
+      final key = DateFormat('yyyy-MM-dd').format(tx.date);
+      final prev = dateMap[key] ?? (amount: 0.0, date: tx.date);
+      dateMap[key] = (amount: prev.amount + tx.amount, date: tx.date);
+    }
+
+    final sortedEntries = dateMap.values.toList()..sort((a, b) => a.date.compareTo(b.date));
+    final displayEntries = sortedEntries.length > 7 ? sortedEntries.sublist(sortedEntries.length - 7) : sortedEntries;
+
+    final totalIncome = displayEntries.fold<double>(0.0, (s, e) => s + e.amount);
+    double maxVal = displayEntries.map((e) => e.amount).reduce(max);
+    if (maxVal <= 0) maxVal = 100;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Flujo de Ingresos',
+              style: TextStyle(
+                fontFamily: 'IBM Plex Sans',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.onSurface,
+              ),
+            ),
+            const _DotLegend(color: AppColors.secondary, label: 'Ingresos'),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Total Ingresos: \$${totalIncome.toStringAsFixed(2)}',
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.secondary,
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 110,
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: maxVal * 1.15,
+              gridData: const FlGridData(show: false),
+              titlesData: FlTitlesData(
+                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (val, meta) {
+                      final idx = val.toInt();
+                      if (idx >= 0 && idx < displayEntries.length) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            DateFormat('d MMM', 'es').format(displayEntries[idx].date),
+                            style: const TextStyle(
+                              fontFamily: 'IBM Plex Sans',
+                              fontSize: 9,
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                ),
+              ),
+              borderData: FlBorderData(show: false),
+              barTouchData: BarTouchData(
+                enabled: true,
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    return BarTooltipItem(
+                      '+\$${rod.toY.toStringAsFixed(0)}',
+                      const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.secondary,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              barGroups: displayEntries.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final data = entry.value;
+                return BarChartGroupData(
+                  x: idx,
+                  barRods: [
+                    BarChartRodData(
+                      toY: data.amount,
+                      color: AppColors.secondary,
+                      width: 14,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpenseFlowChart(List<Transaction> txs) {
+    final expenseTxs = txs.where((t) => t.type == 'expense').toList();
+    if (expenseTxs.isEmpty) {
+      return const SizedBox(
+        height: 90,
+        child: Center(
+          child: Text(
+            'Sin gastos registrados en este periodo',
+            style: TextStyle(
+                fontFamily: 'IBM Plex Sans',
+                fontSize: 12,
+                color: AppColors.onSurfaceVariant),
+          ),
+        ),
+      );
+    }
+
+    final dateMap = <String, ({double amount, DateTime date})>{};
+    for (final tx in expenseTxs) {
+      final key = DateFormat('yyyy-MM-dd').format(tx.date);
+      final prev = dateMap[key] ?? (amount: 0.0, date: tx.date);
+      dateMap[key] = (amount: prev.amount + tx.amount, date: tx.date);
+    }
+
+    final sortedEntries = dateMap.values.toList()..sort((a, b) => a.date.compareTo(b.date));
+    final displayEntries = sortedEntries.length > 7 ? sortedEntries.sublist(sortedEntries.length - 7) : sortedEntries;
+
+    final totalExpense = displayEntries.fold<double>(0.0, (s, e) => s + e.amount);
+    double maxVal = displayEntries.map((e) => e.amount).reduce(max);
+    if (maxVal <= 0) maxVal = 100;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Flujo de Gastos',
+              style: TextStyle(
+                fontFamily: 'IBM Plex Sans',
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.onSurface,
+              ),
+            ),
+            const _DotLegend(color: AppColors.error, label: 'Gastos'),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Total Gastos: -\$${totalExpense.toStringAsFixed(2)}',
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.error,
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 110,
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: maxVal * 1.15,
+              gridData: const FlGridData(show: false),
+              titlesData: FlTitlesData(
+                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (val, meta) {
+                      final idx = val.toInt();
+                      if (idx >= 0 && idx < displayEntries.length) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            DateFormat('d MMM', 'es').format(displayEntries[idx].date),
+                            style: const TextStyle(
+                              fontFamily: 'IBM Plex Sans',
+                              fontSize: 9,
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                          ),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                ),
+              ),
+              borderData: FlBorderData(show: false),
+              barTouchData: BarTouchData(
+                enabled: true,
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    return BarTooltipItem(
+                      '-\$${rod.toY.toStringAsFixed(0)}',
+                      const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.error,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              barGroups: displayEntries.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final data = entry.value;
+                return BarChartGroupData(
+                  x: idx,
+                  barRods: [
+                    BarChartRodData(
+                      toY: data.amount,
+                      color: AppColors.error,
+                      width: 14,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DotLegend extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _DotLegend({required this.color, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'IBM Plex Sans',
+            fontSize: 10,
+            color: AppColors.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -391,6 +916,7 @@ class _ActivityRow extends StatelessWidget {
             ),
             child: Icon(
               IconData(
+                // ignore: non_const_argument_for_const_parameter
                 category?.iconCode ?? 0xe574,
                 fontFamily: 'MaterialIcons',
               ),
@@ -458,4 +984,395 @@ class _ActivityRow extends StatelessWidget {
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Bar de Metas y Deudas Activas para aportes rápidos desde Ingresos (Fix #1)
+// ---------------------------------------------------------------------------
+
+class _ActiveGoalsAndDebtsBar extends ConsumerWidget {
+  const _ActiveGoalsAndDebtsBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final goalsAsync = ref.watch(activeGoalsProgressProvider);
+    final debtsAsync = ref.watch(activeDebtsProgressProvider);
+
+    final goals = goalsAsync.value ?? <GoalProgress>[];
+    final debts = debtsAsync.value ?? <DebtProgress>[];
+
+    if (goals.isEmpty && debts.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.outlineVariant.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.touch_app_outlined, size: 16, color: AppColors.tertiary),
+              SizedBox(width: 6),
+              Text(
+                'Aportes manuales desde Ingresos',
+                style: TextStyle(
+                  fontFamily: 'IBM Plex Sans',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 48,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                // Metas activas
+                ...goals.map((gp) => _GoalContributionChip(gp: gp)),
+                // Deudas activas
+                ...debts.map((dp) => _DebtPaymentChip(dp: dp)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GoalContributionChip extends ConsumerWidget {
+  final GoalProgress gp;
+
+  const _GoalContributionChip({required this.gp});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final goal = gp.goal;
+    final icon = goal.goalType == 'vacation'
+        ? Icons.flight_takeoff_outlined
+        : goal.goalType == 'emergency'
+            ? Icons.security_outlined
+            : Icons.savings_outlined;
+
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      child: ActionChip(
+        avatar: Icon(icon, size: 16, color: AppColors.tertiary),
+        label: Text(
+          '${goal.name} (Aportar)',
+          style: const TextStyle(
+            fontFamily: 'IBM Plex Sans',
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: AppColors.onSurface,
+          ),
+        ),
+        backgroundColor: AppColors.tertiaryContainer.withOpacity(0.2),
+        side: BorderSide(color: AppColors.tertiary.withOpacity(0.4)),
+        onPressed: () => _showContributeGoalSheet(context, ref, gp),
+      ),
+    );
+  }
+}
+
+class _DebtPaymentChip extends ConsumerWidget {
+  final DebtProgress dp;
+
+  const _DebtPaymentChip({required this.dp});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final debt = dp.debt;
+
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      child: ActionChip(
+        avatar: Icon(
+          // ignore: non_const_argument_for_const_parameter
+          IconData(debt.iconCode, fontFamily: 'MaterialIcons'),
+          size: 16,
+          color: AppColors.error,
+        ),
+        label: Text(
+          '${debt.name} (Pagar)',
+          style: const TextStyle(
+            fontFamily: 'IBM Plex Sans',
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: AppColors.onSurface,
+          ),
+        ),
+        backgroundColor: AppColors.errorContainer.withOpacity(0.2),
+        side: BorderSide(color: AppColors.error.withOpacity(0.4)),
+        onPressed: () => _showPayDebtSheet(context, ref, dp),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bottom Sheets & Notificaciones de Meta/Deuda completada
+// ---------------------------------------------------------------------------
+
+void _showContributeGoalSheet(
+    BuildContext context, WidgetRef ref, GoalProgress gp) {
+  final controller = TextEditingController();
+  final goal = gp.goal;
+  final remaining = (goal.targetAmount - gp.currentContributed).clamp(0.0, double.infinity);
+
+  showModalBottomSheet(
+    context: context,
+    useRootNavigator: true,
+    isScrollControlled: true,
+    backgroundColor: AppColors.surfaceContainerLow,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (ctx) => Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(ctx).bottom + 24,
+        left: 20,
+        right: 20,
+        top: 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Aportar a "${goal.name}"',
+            style: const TextStyle(
+              fontFamily: 'IBM Plex Sans',
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppColors.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Faltan \$${remaining.toStringAsFixed(2)} para completar el objetivo de \$${goal.targetAmount.toStringAsFixed(2)}.',
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 13,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Monto del aporte (\$)',
+              hintText: 'Ej. 50.00',
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () async {
+                final amount = double.tryParse(controller.text) ?? 0;
+                if (amount <= 0) return;
+
+                final db = ref.read(databaseProvider);
+                // Insert contribution
+                await db.insertGoalContribution(GoalContributionsCompanion.insert(
+                  goalId: goal.id,
+                  amount: amount,
+                  date: DateTime.now(),
+                ));
+
+                // Insert corresponding expense transaction to reflect cash outflow
+                final cats = await db.getAllCategories();
+                final cat = cats.firstWhere((c) => c.name == 'Otros', orElse: () => cats.first);
+                await db.insertTransaction(TransactionsCompanion.insert(
+                  amount: amount,
+                  categoryId: cat.id,
+                  type: const Value('expense'),
+                  date: DateTime.now(),
+                  note: Value('Aporte a meta: ${goal.name}'),
+                ));
+
+                final newTotal = gp.currentContributed + amount;
+                if (ctx.mounted) Navigator.pop(ctx);
+
+                // Celebración si se completó
+                if (newTotal >= goal.targetAmount && context.mounted) {
+                  _showCelebrationAlert(
+                    context,
+                    title: '🎉 ¡Meta Completada!',
+                    message: '¡Felicitaciones! Has alcanzado tu objetivo de ahorro para "${goal.name}".',
+                    color: AppColors.tertiary,
+                  );
+                }
+              },
+              child: const Text('Confirmar Aporte'),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+void _showPayDebtSheet(
+    BuildContext context, WidgetRef ref, DebtProgress dp) {
+  final controller = TextEditingController();
+  final debt = dp.debt;
+
+  showModalBottomSheet(
+    context: context,
+    useRootNavigator: true,
+    isScrollControlled: true,
+    backgroundColor: AppColors.surfaceContainerLow,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (ctx) => Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(ctx).bottom + 24,
+        left: 20,
+        right: 20,
+        top: 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Pagar Deuda "${debt.name}"',
+            style: const TextStyle(
+              fontFamily: 'IBM Plex Sans',
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppColors.onSurface,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Saldo pendiente actual: \$${dp.effectiveRemaining.toStringAsFixed(2)}.',
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 13,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Monto del pago (\$)',
+              hintText: 'Ej. 100.00',
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                final amount = double.tryParse(controller.text) ?? 0;
+                if (amount <= 0) return;
+
+                final db = ref.read(databaseProvider);
+                // Insert debt payment
+                await db.insertDebtPayment(DebtPaymentsCompanion.insert(
+                  debtId: debt.id,
+                  amount: amount,
+                  date: DateTime.now(),
+                ));
+
+                // Insert corresponding expense transaction to reflect cash outflow
+                final cats = await db.getAllCategories();
+                final cat = cats.firstWhere((c) => c.name == 'Otros', orElse: () => cats.first);
+                await db.insertTransaction(TransactionsCompanion.insert(
+                  amount: amount,
+                  categoryId: cat.id,
+                  type: const Value('expense'),
+                  date: DateTime.now(),
+                  note: Value('Pago de deuda: ${debt.name}'),
+                ));
+
+                final newRemaining = dp.effectiveRemaining - amount;
+                if (ctx.mounted) Navigator.pop(ctx);
+
+                // Celebración si se liquidó por completo
+                if (newRemaining <= 0 && context.mounted) {
+                  _showCelebrationAlert(
+                    context,
+                    title: '✅ ¡Deuda Liquidada!',
+                    message: '¡Excelente noticia! Has pagado por completo la deuda "${debt.name}".',
+                    color: AppColors.secondary,
+                  );
+                }
+              },
+              child: const Text('Registrar Pago'),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+void _showCelebrationAlert(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required Color color,
+}) {
+  showDialog(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: AppColors.surfaceContainerLow,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Text(
+        title,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontFamily: 'IBM Plex Sans',
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+      content: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+          color: AppColors.onSurface,
+        ),
+      ),
+      actions: [
+        Center(
+          child: ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: color,
+              foregroundColor: Colors.black,
+            ),
+            child: const Text('¡Aceptar!'),
+          ),
+        ),
+      ],
+    ),
+  );
 }
