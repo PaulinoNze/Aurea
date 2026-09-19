@@ -147,43 +147,51 @@ class _AureaBottomNav extends StatelessWidget {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
           child: Stack(
             clipBehavior: Clip.none,
             alignment: Alignment.topCenter,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _NavItem(
-                    icon: Icons.dashboard_outlined,
-                    activeIcon: Icons.dashboard,
-                    label: 'Dashboard',
-                    isSelected: selectedIndex == 0,
-                    onTap: () => onDestinationSelected(0),
+                  Expanded(
+                    child: _NavItem(
+                      icon: Icons.dashboard_outlined,
+                      activeIcon: Icons.dashboard,
+                      label: 'Dashboard',
+                      isSelected: selectedIndex == 0,
+                      onTap: () => onDestinationSelected(0),
+                    ),
                   ),
-                  _NavItem(
-                    icon: Icons.receipt_long_outlined,
-                    activeIcon: Icons.receipt_long,
-                    label: 'Actividad',
-                    isSelected: selectedIndex == 1,
-                    onTap: () => onDestinationSelected(1),
+                  Expanded(
+                    child: _NavItem(
+                      icon: Icons.receipt_long_outlined,
+                      activeIcon: Icons.receipt_long,
+                      label: 'Actividad',
+                      isSelected: selectedIndex == 1,
+                      onTap: () => onDestinationSelected(1),
+                    ),
                   ),
-                  // FAB placeholder space
-                  const SizedBox(width: 72),
-                  _NavItem(
-                    icon: Icons.pie_chart_outline,
-                    activeIcon: Icons.pie_chart,
-                    label: 'Presupuestos',
-                    isSelected: selectedIndex == 2,
-                    onTap: () => onDestinationSelected(2),
+                  const Expanded(
+                    child: SizedBox(), // FAB placeholder space
                   ),
-                  _NavItem(
-                    icon: Icons.emoji_events_outlined,
-                    activeIcon: Icons.emoji_events,
-                    label: 'Metas',
-                    isSelected: selectedIndex == 3,
-                    onTap: () => onDestinationSelected(3),
+                  Expanded(
+                    child: _NavItem(
+                      icon: Icons.pie_chart_outline,
+                      activeIcon: Icons.pie_chart,
+                      label: 'Presupuestos',
+                      isSelected: selectedIndex == 2,
+                      onTap: () => onDestinationSelected(2),
+                    ),
+                  ),
+                  Expanded(
+                    child: _NavItem(
+                      icon: Icons.emoji_events_outlined,
+                      activeIcon: Icons.emoji_events,
+                      label: 'Metas',
+                      isSelected: selectedIndex == 3,
+                      onTap: () => onDestinationSelected(3),
+                    ),
                   ),
                 ],
               ),
@@ -247,25 +255,29 @@ class _NavItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               isSelected ? activeIcon : icon,
               color: color,
-              size: 24,
+              size: 22,
             ),
             const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'IBM Plex Sans',
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: color,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  fontFamily: 'IBM Plex Sans',
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: color,
+                ),
               ),
             ),
           ],

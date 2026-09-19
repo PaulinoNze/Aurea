@@ -397,7 +397,8 @@ class _DebtsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final debtsAsync = ref.watch(debtsProvider);
+    // ✅ Usa debtsProgressProvider para reflejar el saldo real tras los pagos registrados
+    final progressAsync = ref.watch(debtsProgressProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -431,83 +432,225 @@ class _DebtsSection extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 16),
-        debtsAsync.when(
-          data: (debts) {
-            if (debts.isEmpty) {
+        progressAsync.when(
+          data: (progressList) {
+            final paidDebts = progressList.where((dp) => dp.isPaidOff).toList();
+
+            if (progressList.isEmpty) {
               return _EmptyDebtsState(
                   onAdd: () => _showAddDebtSheet(context, ref));
             }
+
+            // Total restante REAL = suma de saldos efectivos tras pagos
             final totalRemaining =
-                debts.fold(0.0, (s, d) => s + d.remainingAmount);
-            final totalMonthly = debts.fold(
-                0.0, (s, d) => s + d.minimumPayment + d.extraPayment);
+                progressList.fold(0.0, (s, dp) => s + dp.effectiveRemaining);
+            // Total original para calcular el progreso global
+            final totalOriginal =
+                progressList.fold(0.0, (s, dp) => s + dp.debt.remainingAmount);
+            // Total ya pagado
+            final totalPaid =
+                progressList.fold(0.0, (s, dp) => s + dp.totalPaid);
+            // Pago mensual comprometido
+            final totalMonthly = progressList.fold(
+                0.0,
+                (s, dp) =>
+                    s + dp.debt.minimumPayment + dp.debt.extraPayment);
+
+            // Progreso global de reducción de deuda
+            final globalProgress = totalOriginal > 0
+                ? (totalPaid / totalOriginal).clamp(0.0, 1.0)
+                : 0.0;
 
             return Container(
               decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.surfaceContainerLow,
+                    AppColors.error.withOpacity(0.04),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                    color: AppColors.outlineVariant.withOpacity(0.5)),
+                    color: AppColors.error.withOpacity(0.15), width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.error.withOpacity(0.06),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Column(
                 children: [
-                  // Summary header
+                  // ── Summary header premium ──
                   Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Column(
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'TOTAL RESTANTE',
-                              style: TextStyle(
-                                fontFamily: 'IBM Plex Sans',
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 1.2,
-                                color: AppColors.onSurfaceVariant,
-                              ),
+                            // Saldo REAL restante
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 6,
+                                      height: 6,
+                                      margin: const EdgeInsets.only(right: 6, top: 1),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.error,
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: AppColors.error.withOpacity(0.5),
+                                            blurRadius: 4,
+                                            spreadRadius: 1,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const Text(
+                                      'SALDO REAL PENDIENTE',
+                                      style: TextStyle(
+                                        fontFamily: 'IBM Plex Sans',
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 1.2,
+                                        color: AppColors.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '\$${totalRemaining.toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -1,
+                                    color: totalRemaining > 0
+                                        ? AppColors.error
+                                        : AppColors.tertiary,
+                                  ),
+                                ),
+                                if (totalPaid > 0) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '\$${totalPaid.toStringAsFixed(2)} pagado ✓',
+                                    style: const TextStyle(
+                                      fontFamily: 'IBM Plex Sans',
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.tertiary,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '\$${totalRemaining.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 28,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: -0.5,
-                                color: AppColors.onSurface,
+                            // Pago mensual
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: AppColors.secondary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: AppColors.secondary.withOpacity(0.2)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  const Text(
+                                    'PAGO/MES',
+                                    style: TextStyle(
+                                      fontFamily: 'IBM Plex Sans',
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 1.0,
+                                      color: AppColors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '\$${totalMonthly.toStringAsFixed(0)}',
+                                    style: const TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.secondary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                        // Barra de progreso global con etiqueta
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'PAGO MENSUAL',
+                            Text(
+                              '${(globalProgress * 100).toStringAsFixed(1)}% eliminado',
                               style: TextStyle(
                                 fontFamily: 'IBM Plex Sans',
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 1.2,
-                                color: AppColors.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '\$${totalMonthly.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontSize: 18,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.secondary,
+                                color: globalProgress > 0
+                                    ? AppColors.tertiary
+                                    : AppColors.onSurfaceVariant,
                               ),
                             ),
+                            if (paidDebts.isNotEmpty)
+                              Text(
+                                '${paidDebts.length} deuda${paidDebts.length > 1 ? 's' : ''} liquidada${paidDebts.length > 1 ? 's' : ''} 🎉',
+                                style: const TextStyle(
+                                  fontFamily: 'IBM Plex Sans',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.tertiary,
+                                ),
+                              ),
                           ],
+                        ),
+                        const SizedBox(height: 6),
+                        // Progress bar con gradiente
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(99),
+                          child: SizedBox(
+                            height: 8,
+                            child: Stack(
+                              children: [
+                                // Background
+                                Container(
+                                  width: double.infinity,
+                                  color: AppColors.error.withOpacity(0.15),
+                                ),
+                                // Fill
+                                FractionallySizedBox(
+                                  widthFactor: globalProgress,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          AppColors.tertiary,
+                                          AppColors.secondary,
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -515,46 +658,56 @@ class _DebtsSection extends ConsumerWidget {
                   Divider(
                       height: 1,
                       color: AppColors.outlineVariant.withOpacity(0.2)),
-                  // Debt list with delete
-                  ...debts.asMap().entries.map((entry) {
+                  // ── Lista de deudas usando DebtProgress ──
+                  ...progressList.asMap().entries.map((entry) {
                     final i = entry.key;
-                    final debt = entry.value;
-                    final isTarget = i == 0;
+                    final dp = entry.value;
+                    final isTarget = i == 0 && !dp.isPaidOff;
                     return Column(
                       children: [
                         Dismissible(
-                          key: ValueKey('debt-${debt.id}'),
+                          key: ValueKey('debt-${dp.debt.id}'),
                           direction: DismissDirection.endToStart,
                           background: Container(
                             alignment: Alignment.centerRight,
                             padding: const EdgeInsets.only(right: 16),
-                            color: AppColors.error.withOpacity(0.1),
+                            decoration: BoxDecoration(
+                              color: AppColors.error.withOpacity(0.1),
+                              borderRadius: i == progressList.length - 1
+                                  ? const BorderRadius.only(
+                                      bottomLeft: Radius.circular(20),
+                                      bottomRight: Radius.circular(20))
+                                  : null,
+                            ),
                             child: const Icon(Icons.delete_outline,
                                 color: AppColors.error),
                           ),
                           confirmDismiss: (_) => _confirmDelete(
-                              context, '¿Eliminar la deuda "${debt.name}"?'),
+                              context,
+                              '¿Eliminar la deuda "${dp.debt.name}"?'),
                           onDismissed: (_) async {
                             final db = ref.read(databaseProvider);
-                            await db.deleteDebt(debt.id);
+                            await db.deleteDebt(dp.debt.id);
                           },
-                          child: _DebtRow(
-                            debt: debt,
+                          child: _DebtRowProgress(
+                            debtProgress: dp,
                             isTarget: isTarget,
                             onDelete: () async {
-                              final confirmed = await _confirmDelete(context,
-                                  '¿Eliminar la deuda "${debt.name}"?');
+                              final confirmed = await _confirmDelete(
+                                  context,
+                                  '¿Eliminar la deuda "${dp.debt.name}"?');
                               if (confirmed) {
                                 final db = ref.read(databaseProvider);
-                                await db.deleteDebt(debt.id);
+                                await db.deleteDebt(dp.debt.id);
                               }
                             },
                           ),
                         ),
-                        if (i < debts.length - 1)
+                        if (i < progressList.length - 1)
                           Divider(
                               height: 1,
-                              color: AppColors.outlineVariant.withOpacity(0.2)),
+                              color:
+                                  AppColors.outlineVariant.withOpacity(0.2)),
                       ],
                     );
                   }),
@@ -611,182 +764,258 @@ class _EmptyDebtsState extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Debt Row con proyección de pago
+// Debt Row — usa DebtProgress para mostrar saldo real tras pagos
 // ---------------------------------------------------------------------------
 
-class _DebtRow extends StatelessWidget {
-  final Debt debt;
+class _DebtRowProgress extends StatelessWidget {
+  final DebtProgress debtProgress;
   final bool isTarget;
   final VoidCallback onDelete;
 
-  const _DebtRow({
-    required this.debt,
+  const _DebtRowProgress({
+    required this.debtProgress,
     required this.isTarget,
     required this.onDelete,
   });
 
-  /// Calcula los meses para pagar la deuda con la fórmula de amortización estándar.
-  /// Si la tasa es 0%, divide monto / pago mensual.
-  int _payoffMonths() {
+  /// Calcula los meses para pagar usando el saldo efectivo restante.
+  int _payoffMonths(double remainingBalance) {
+    final debt = debtProgress.debt;
     final monthlyPayment = debt.minimumPayment + debt.extraPayment;
     if (monthlyPayment <= 0) return 0;
+    if (remainingBalance <= 0) return 0;
     if (debt.interestRate <= 0) {
-      return (debt.remainingAmount / monthlyPayment).ceil();
+      return (remainingBalance / monthlyPayment).ceil();
     }
-    final r = debt.interestRate / 100 / 12; // tasa mensual
-    final n = debt.remainingAmount;
+    final r = debt.interestRate / 100 / 12;
     final p = monthlyPayment;
-
-    if (p <= n * r) return 9999; // pago insuficiente para cubrir intereses
-
-    // Fórmula: -ln(1 - n*r/p) / ln(1+r)
-    final months = -log(1 - (n * r / p)) / log(1 + r);
+    if (p <= remainingBalance * r) return 9999;
+    final months = -log(1 - (remainingBalance * r / p)) / log(1 + r);
     return months.ceil();
   }
 
   @override
   Widget build(BuildContext context) {
-    final months = _payoffMonths();
-    final payoffStr = months == 0
-        ? 'Sin pagos definidos'
-        : months >= 9999
-            ? 'Pago insuficiente'
-            : months >= 12
-                ? 'Libre en ~${(months / 12).toStringAsFixed(1)} años'
-                : 'Libre en $months meses';
+    final debt = debtProgress.debt;
+    final effective = debtProgress.effectiveRemaining;
+    final totalPaid = debtProgress.totalPaid;
+    final isPaidOff = debtProgress.isPaidOff;
+
+    // Progreso de pago para esta deuda específica
+    final debtProgress0 = debt.remainingAmount > 0
+        ? (totalPaid / debt.remainingAmount).clamp(0.0, 1.0)
+        : 1.0;
+
+    final months = _payoffMonths(effective);
+    final payoffStr = isPaidOff
+        ? '¡Liquidada! 🎉'
+        : months == 0
+            ? 'Sin pagos definidos'
+            : months >= 9999
+                ? 'Pago insuficiente'
+                : months >= 12
+                    ? 'Libre en ~${(months / 12).toStringAsFixed(1)} años'
+                    : 'Libre en $months meses';
+
+    final rowColor = isPaidOff
+        ? AppColors.tertiary
+        : isTarget
+            ? AppColors.error
+            : AppColors.onSurfaceVariant;
 
     return Opacity(
-      opacity: isTarget ? 1.0 : 0.7,
+      opacity: isPaidOff ? 0.6 : (isTarget ? 1.0 : 0.85),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
+        child: Column(
           children: [
-            // Target indicator
-            if (isTarget)
-              Container(
-                width: 3,
-                height: 60,
-                margin: const EdgeInsets.only(right: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.error,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-              ),
-            // Icon
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isTarget
-                    ? AppColors.errorContainer.withOpacity(0.2)
-                    : AppColors.surfaceVariant,
-              ),
-              child: Icon(
-                // ignore: non_const_argument_for_const_parameter
-                IconData(debt.iconCode, fontFamily: 'MaterialIcons'),
-                color:
-                    isTarget ? AppColors.error : AppColors.onSurfaceVariant,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          debt.name,
-                          style: const TextStyle(
-                            fontFamily: 'IBM Plex Sans',
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.onSurface,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+            Row(
+              children: [
+                // Target indicator bar
+                if (isTarget)
+                  Container(
+                    width: 3,
+                    height: 70,
+                    margin: const EdgeInsets.only(right: 12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [AppColors.error, AppColors.error.withOpacity(0.3)],
                       ),
-                      if (isTarget) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.error.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'OBJETIVO',
-                            style: TextStyle(
-                              fontFamily: 'IBM Plex Sans',
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.0,
-                              color: AppColors.error,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                // Icon
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isPaidOff
+                        ? AppColors.tertiary.withOpacity(0.15)
+                        : isTarget
+                            ? AppColors.error.withOpacity(0.12)
+                            : AppColors.surfaceVariant,
+                    border: isTarget
+                        ? Border.all(
+                            color: AppColors.error.withOpacity(0.3), width: 1.5)
+                        : null,
+                  ),
+                  child: Icon(
+                    isPaidOff
+                        ? Icons.check_circle_outline
+                        // ignore: non_const_argument_for_const_parameter
+                        : IconData(debt.iconCode, fontFamily: 'MaterialIcons'),
+                    color: rowColor,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              debt.name,
+                              style: TextStyle(
+                                fontFamily: 'IBM Plex Sans',
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                color: isPaidOff
+                                    ? AppColors.onSurfaceVariant
+                                    : AppColors.onSurface,
+                                decoration: isPaidOff
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          if (isTarget && !isPaidOff) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.error.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'OBJETIVO',
+                                style: TextStyle(
+                                  fontFamily: 'IBM Plex Sans',
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.0,
+                                  color: AppColors.error,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      Text(
+                        '${debt.interestRate}% APR',
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          color: AppColors.onSurfaceVariant,
                         ),
-                      ],
+                      ),
+                      Text(
+                        payoffStr,
+                        style: TextStyle(
+                          fontFamily: 'IBM Plex Sans',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: rowColor,
+                        ),
+                      ),
                     ],
                   ),
-                  Text(
-                    '${debt.interestRate}% APR',
-                    style: const TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 12,
-                      color: AppColors.onSurfaceVariant,
-                    ),
-                  ),
-                  Text(
-                    payoffStr,
-                    style: TextStyle(
-                      fontFamily: 'IBM Plex Sans',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: isTarget ? AppColors.error : AppColors.tertiary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '\$${debt.remainingAmount.toInt()}',
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.onSurface,
-                  ),
                 ),
-                Text(
-                  isTarget
-                      ? 'Pagando \$${(debt.minimumPayment + debt.extraPayment).toInt()}/mo'
-                      : 'Mín. \$${debt.minimumPayment.toInt()}/mo',
-                  style: TextStyle(
-                    fontFamily: 'IBM Plex Sans',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: isTarget
-                        ? AppColors.error
-                        : AppColors.onSurfaceVariant,
-                  ),
+                // Saldo efectivo restante
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      isPaidOff ? '\$0' : '\$${effective.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: rowColor,
+                      ),
+                    ),
+                    if (totalPaid > 0)
+                      Text(
+                        '-\$${totalPaid.toStringAsFixed(0)} pagado',
+                        style: const TextStyle(
+                          fontFamily: 'IBM Plex Sans',
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.tertiary,
+                        ),
+                      ),
+                    Text(
+                      isTarget
+                          ? 'Pagando \$${(debt.minimumPayment + debt.extraPayment).toInt()}/mo'
+                          : 'Mín. \$${debt.minimumPayment.toInt()}/mo',
+                      style: TextStyle(
+                        fontFamily: 'IBM Plex Sans',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: isTarget
+                            ? AppColors.error
+                            : AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline,
+                      color: AppColors.error, size: 20),
+                  tooltip: 'Eliminar deuda',
+                  onPressed: onDelete,
                 ),
               ],
             ),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.delete_outline,
-                  color: AppColors.error, size: 20),
-              tooltip: 'Eliminar deuda',
-              onPressed: onDelete,
-            ),
+            // Mini progress bar por deuda
+            if (!isPaidOff) ...[
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: SizedBox(
+                  height: 4,
+                  child: Stack(
+                    children: [
+                      Container(
+                          width: double.infinity,
+                          color: AppColors.error.withOpacity(0.12)),
+                      FractionallySizedBox(
+                        widthFactor: debtProgress0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.tertiary,
+                                AppColors.secondary,
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

@@ -140,11 +140,25 @@ class _HorizontalCards extends ConsumerWidget {
     final incomeVal = income.value ?? 0.0;
     final expensesVal = expenses.value ?? 0.0;
     final budgetVal = budgetLimit.value ?? 0.0;
-    final budgetRemaining = (budgetVal - expensesVal).clamp(0.0, double.infinity);
-    final budgetProgress = budgetVal > 0 ? (expensesVal / budgetVal).clamp(0.0, 1.0) : 0.0;
+
+    // Presupuesto: puede ser negativo si se excede — NO clampear a 0
+    final budgetDiff = budgetVal - expensesVal;
+    final isOverBudget = budgetDiff < 0;
+    final budgetProgress =
+        budgetVal > 0 ? (expensesVal / budgetVal).clamp(0.0, 1.0) : 0.0;
+
+    // Ingresos vs Gastos: fracciones relativas al mayor valor
+    final maxBar =
+        incomeVal > 0 ? incomeVal : (expensesVal > 0 ? expensesVal : 1.0);
+    final incomeFraction = (incomeVal / maxBar).clamp(0.0, 1.0);
+    final expensesFraction = (expensesVal / maxBar).clamp(0.0, 1.0);
+    final netFlow = incomeVal - expensesVal;
+    final savingsRate = incomeVal > 0
+        ? ((incomeVal - expensesVal) / incomeVal * 100)
+        : 0.0;
 
     return SizedBox(
-      height: 180,
+      height: 210,
       child: ListView(
         scrollDirection: Axis.horizontal,
         clipBehavior: Clip.none,
@@ -154,21 +168,77 @@ class _HorizontalCards extends ConsumerWidget {
             title: 'Ingresos vs Gastos',
             backgroundIcon: Icons.swap_vert,
             content: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _IncomeExpenseRow(
                   label: 'Ingresos',
                   amount: incomeVal,
                   isIncome: true,
-                  fraction: incomeVal > 0 ? 1.0 : 0.0,
+                  fraction: incomeFraction,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 _IncomeExpenseRow(
                   label: 'Gastos',
                   amount: expensesVal,
                   isIncome: false,
-                  fraction: incomeVal > 0
-                      ? (expensesVal / incomeVal).clamp(0.0, 1.0)
-                      : 0.0,
+                  fraction: expensesFraction,
+                ),
+                const SizedBox(height: 10),
+                // Flujo neto del mes
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'FLUJO NETO',
+                      style: TextStyle(
+                        fontFamily: 'IBM Plex Sans',
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.8,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          '${netFlow >= 0 ? '+' : ''}\$${netFlow.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: netFlow >= 0
+                                ? AppColors.tertiary
+                                : AppColors.error,
+                          ),
+                        ),
+                        if (incomeVal > 0) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: (netFlow >= 0
+                                      ? AppColors.tertiary
+                                      : AppColors.error)
+                                  .withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${savingsRate.toStringAsFixed(0)}%',
+                              style: TextStyle(
+                                fontFamily: 'IBM Plex Sans',
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: netFlow >= 0
+                                    ? AppColors.tertiary
+                                    : AppColors.error,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -192,61 +262,92 @@ class _HorizontalCards extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                budgetVal == 0
-                    ? const Text(
-                        'Sin presupuesto',
+                if (budgetVal == 0)
+                  const Text(
+                    'Sin presupuesto',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 16,
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  )
+                else
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${isOverBudget ? '-' : ''}\$${budgetDiff.abs().toStringAsFixed(0)}',
                         style: TextStyle(
                           fontFamily: 'Inter',
-                          fontSize: 16,
-                          color: AppColors.onSurfaceVariant,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: isOverBudget
+                              ? AppColors.error
+                              : AppColors.tertiary,
                         ),
-                      )
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '\$${budgetRemaining.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 24,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.onSurface,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '/ \$${budgetVal.toStringAsFixed(0)}',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 13,
-                              color: AppColors.onSurfaceVariant.withOpacity(0.7),
-                            ),
-                          ),
-                        ],
                       ),
+                      const SizedBox(width: 4),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 3),
+                        child: Text(
+                          '/ \$${budgetVal.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            color: AppColors.onSurfaceVariant.withOpacity(0.7),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 if (budgetVal > 0) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   LinearProgressBar(
                     progress: budgetProgress,
-                    color: budgetProgress >= 0.9
+                    color: isOverBudget
                         ? AppColors.error
-                        : AppColors.tertiary,
-                    height: 6,
-                  ),
-                  const SizedBox(height: 6),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      '${(budgetProgress * 100).toInt()}% consumido',
-                      style: TextStyle(
-                        fontFamily: 'IBM Plex Sans',
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: budgetProgress >= 0.9
+                        : budgetProgress >= 0.9
                             ? AppColors.error
                             : AppColors.tertiary,
+                    height: 6,
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${(budgetProgress * 100).toInt()}% usado',
+                        style: TextStyle(
+                          fontFamily: 'IBM Plex Sans',
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          color: isOverBudget
+                              ? AppColors.error
+                              : budgetProgress >= 0.9
+                                  ? AppColors.error
+                                  : AppColors.onSurfaceVariant,
+                        ),
                       ),
-                    ),
+                      if (isOverBudget)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppColors.error.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'EXCEDIDO',
+                            style: TextStyle(
+                              fontFamily: 'IBM Plex Sans',
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                              color: AppColors.error,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ],
